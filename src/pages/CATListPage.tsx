@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ChevronRight } from 'lucide-react';
+import { MedIconBox, CAT_ICON_MAP } from '../components/ui/MedIcons';
 import { CATS_DATA, CATEGORIES } from '../data/cats';
 
 const CATListPage: React.FC = () => {
@@ -83,14 +84,13 @@ const CATListPage: React.FC = () => {
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateX(3px)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none'; }}
             >
-              <div style={{
-                width: 46, height: 46, borderRadius: 12,
-                background: 'var(--primary-light)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, flexShrink: 0,
-              }}>
-                {cat.icon}
-              </div>
+              <MedIconBox
+                name={cat.icon}
+                size={22}
+                boxSize={46}
+                color={CAT_ICON_MAP[cat.icon]?.color || '#1a6bb5'}
+                bg={CAT_ICON_MAP[cat.icon]?.bg || 'var(--primary-light)'}
+              />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '0.95rem', color: 'var(--text)', marginBottom: 2 }}>
                   {cat.title}

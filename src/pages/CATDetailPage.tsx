@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ChevronDown, ChevronUp, FileText, Stethoscope, Pill, Phone } from 'lucide-react';
+import { MedIconBox, CAT_ICON_MAP } from '../components/ui/MedIcons';
 import { CATS_DATA } from '../data/cats';
 
 const Section: React.FC<{ title: string; icon: React.ReactNode; items: string[]; color: string; bg: string; defaultOpen?: boolean }> = ({
@@ -70,12 +71,12 @@ const CATDetailPage: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
           <div style={{
             width: 56, height: 56, borderRadius: 14,
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+            background: CAT_ICON_MAP[cat.icon]?.bg || '#e8f2fb',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26, flexShrink: 0,
-            boxShadow: '0 4px 12px rgba(26,107,181,0.3)',
+            flexShrink: 0,
+            boxShadow: '0 4px 12px rgba(26,107,181,0.2)',
           }}>
-            {cat.icon}
+            <MedIconBox name={cat.icon} size={26} boxSize={56} color={CAT_ICON_MAP[cat.icon]?.color || '#1a6bb5'} bg={CAT_ICON_MAP[cat.icon]?.bg || '#e8f2fb'} />
           </div>
           <div>
             <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 700, margin: '0 0 4px', color: 'var(--text)' }}>

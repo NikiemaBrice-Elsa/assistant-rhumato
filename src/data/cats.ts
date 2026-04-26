@@ -5,7 +5,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'lombalgie',
     title: 'Lombalgie commune',
     category: 'Rachis',
-    icon: '🦴',
+    icon: 'bone',
     tags: ['dos', 'lombaire', 'rachis'],
     interrogatoire: [
       'Début brutal ou progressif ? Facteur déclenchant (effort, faux mouvement) ?',
@@ -66,7 +66,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'cervicalgie',
     title: 'Cervicalgie',
     category: 'Rachis',
-    icon: '🔄',
+    icon: 'spine',
     tags: ['cou', 'cervical', 'rachis', 'névralgie'],
     interrogatoire: [
       'Traumatisme récent (coup du lapin, chute) ?',
@@ -122,7 +122,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'gonalgie',
     title: 'Gonalgie (douleur du genou)',
     category: 'Membres inférieurs',
-    icon: '🦵',
+    icon: 'knee',
     tags: ['genou', 'gonarthrose', 'ménisque'],
     interrogatoire: [
       'Âge, poids (BMI), activité physique',
@@ -181,7 +181,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'epaule-douloureuse',
     title: 'Épaule douloureuse',
     category: 'Membres supérieurs',
-    icon: '💪',
+    icon: 'shoulder',
     tags: ['épaule', 'coiffe', 'tendinite', 'capsulite'],
     interrogatoire: [
       'Âge, main dominante, profession (travail au-dessus de la tête) ?',
@@ -239,7 +239,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'sciatique',
     title: 'Sciatique',
     category: 'Rachis',
-    icon: '⚡',
+    icon: 'nerve',
     tags: ['sciatique', 'hernie discale', 'radiculalgie', 'L4 L5 S1'],
     interrogatoire: [
       'Trajet exact : fesse → face postérieure cuisse → mollet → talon/plante (L5-S1) ou orteils internes (L4) ?',
@@ -295,7 +295,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'arthrite-aigue',
     title: 'Arthrite aiguë',
     category: 'Articulations',
-    icon: '🔥',
+    icon: 'joint',
     tags: ['arthrite', 'monoarthrite', 'articulation', 'inflammation'],
     interrogatoire: [
       'Nombre d\'articulations touchées : monoarthrite, oligoarthrite, polyarthrite ?',
@@ -353,7 +353,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'polyarthralgies',
     title: 'Polyarthralgies',
     category: 'Articulations',
-    icon: '🔗',
+    icon: 'joints',
     tags: ['polyarthrite', 'articulations multiples', 'PR', 'rhumatisme'],
     interrogatoire: [
       'Nombre et distribution des articulations : symétrique ou asymétrique ?',
@@ -411,7 +411,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'goutte',
     title: 'Goutte',
     category: 'Métabolique',
-    icon: '💎',
+    icon: 'crystal',
     tags: ['goutte', 'uricémie', 'cristaux', 'hyperuricémie'],
     interrogatoire: [
       'Âge, sexe (hommes > 40 ans ++), surpoids, syndrome métabolique ?',
@@ -465,7 +465,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'osteoporose',
     title: 'Ostéoporose',
     category: 'Métabolique',
-    icon: '🦴',
+    icon: 'bone',
     tags: ['ostéoporose', 'fracture', 'densitométrie', 'ménopause'],
     interrogatoire: [
       'Âge, sexe, statut ménopausique (femmes)',
@@ -520,7 +520,7 @@ export const CATS_DATA: CATPathology[] = [
     id: 'douleurs-diffuses',
     title: 'Douleurs diffuses',
     category: 'Syndromes complexes',
-    icon: '🌊',
+    icon: 'pain',
     tags: ['fibromyalgie', 'douleurs chroniques', 'fatigue', 'polyalgies'],
     interrogatoire: [
       'Localisation : douleurs multisites, bilatérales, depuis quand ?',

@@ -2,14 +2,15 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, Pill, Share2, Calendar, ArrowRight } from 'lucide-react';
+import { MedIcon, CAT_ICON_MAP } from '../components/ui/MedIcons';
 
 const CATS_QUICK = [
-  { id: 'lombalgie', label: 'Lombalgie', icon: '🦴', color: '#e8f2fb' },
-  { id: 'goutte', label: 'Goutte', icon: '💎', color: '#dcfce7' },
-  { id: 'sciatique', label: 'Sciatique', icon: '⚡', color: '#fef3c7' },
-  { id: 'arthrite-aigue', label: 'Arthrite aiguë', icon: '🔥', color: '#fee2e2' },
-  { id: 'osteoporose', label: 'Ostéoporose', icon: '🦴', color: '#ede9fe' },
-  { id: 'gonalgie', label: 'Gonalgie', icon: '🦵', color: '#f0fdf4' },
+  { id: 'lombalgie', label: 'Lombalgie', icon: 'bone' },
+  { id: 'goutte', label: 'Goutte', icon: 'crystal' },
+  { id: 'sciatique', label: 'Sciatique', icon: 'nerve' },
+  { id: 'arthrite-aigue', label: 'Arthrite aiguë', icon: 'joint' },
+  { id: 'osteoporose', label: 'Ostéoporose', icon: 'bone' },
+  { id: 'gonalgie', label: 'Gonalgie', icon: 'knee' },
 ];
 
 const HomePage: React.FC = () => {
@@ -117,18 +118,18 @@ const HomePage: React.FC = () => {
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 padding: '0.75rem 0.5rem',
-                background: cat.color,
+                background: CAT_ICON_MAP[cat.icon]?.bg || '#e8f2fb',
                 borderRadius: 8,
                 textDecoration: 'none',
-                gap: 4,
+                gap: 6,
                 transition: 'all 0.15s',
                 border: '1px solid transparent',
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
             >
-              <span style={{ fontSize: 22 }}>{cat.icon}</span>
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#1a202c', textAlign: 'center', lineHeight: 1.2 }}>
+              <MedIcon name={cat.icon} size={22} color={CAT_ICON_MAP[cat.icon]?.color || '#1a6bb5'} />
+              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text)', textAlign: 'center', lineHeight: 1.2 }}>
                 {cat.label}
               </span>
             </Link>

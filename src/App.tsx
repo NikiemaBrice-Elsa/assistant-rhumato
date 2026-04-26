@@ -16,6 +16,7 @@ import CasesPage from './pages/CasesPage';
 import EventsPage from './pages/EventsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import AboutPage from './pages/AboutPage';
 
 const LoadingScreen: React.FC = () => (
   <div style={{
@@ -61,6 +62,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/evenements" element={<PrivateRoute><EventsPage /></PrivateRoute>} />
         <Route path="/profil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        <Route path="/a-propos" element={<PrivateRoute><AboutPage /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

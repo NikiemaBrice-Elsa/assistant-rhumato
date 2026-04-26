@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   Home, FileText, Pill, Share2, Calendar, User,
-  Shield, Menu, X, Sun, Moon, LogOut, Bell,
+  Shield, Menu, X, Sun, Moon, LogOut, Bell, Info,
 } from 'lucide-react';
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/cas-cliniques', label: 'Cas cliniques', icon: Share2 },
   { to: '/evenements', label: 'Évènements', icon: Calendar },
   { to: '/profil', label: 'Mon profil', icon: User },
+  { to: '/a-propos', label: 'À propos', icon: Info },
 ];
 
 const MainLayout: React.FC = () => {

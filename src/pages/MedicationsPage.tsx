@@ -93,7 +93,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
           {/* Liste noms */}
           {localNames.length === 0 && (
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 0' }}>
-              Aucun nom commercial enregistré. Cliquez sur "+ Ajouter" pour en ajouter un.
+              {isAdmin ? 'Aucun nom commercial. Cliquez sur "+ Ajouter" pour en ajouter un.' : 'Aucun nom commercial enregistré.'}
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

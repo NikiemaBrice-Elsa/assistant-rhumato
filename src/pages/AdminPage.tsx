@@ -12,6 +12,75 @@ import type { UserProfile, MedicalEvent, Lab, Invitation, Confirmation, Ad } fro
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+
+// ─── Get logo as base64 for PDF ──────────────────────────────────
+const getLogoBase64 = (): Promise<string | null> => {
+  return new Promise(resolve => {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+      img.src = '/logo.png?v=' + Date.now();
+    } catch { resolve(null); }
+  });
+};
+
+// ─── PDF Header with logo ─────────────────────────────────────────
+const addPDFHeader = (pdf: any, title: string, logoBase64?: string | null, subtitle?: string): number => {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+
+  // Blue header background
+  pdf.setFillColor(26, 107, 181);
+  pdf.rect(0, 0, pageWidth, 38, 'F');
+
+  // Logo if available
+  if (logoBase64) {
+    try { pdf.addImage(logoBase64, 'PNG', 6, 3, 30, 30); } catch {}
+  }
+
+  const textX = logoBase64 ? 42 : 14;
+
+  // Title in white
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFontSize(15);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(title, textX, 17);
+
+  // Subtitle & date
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(subtitle || 'Groupe Assistant Rhumato', textX, 27);
+  pdf.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - 62, 27);
+
+  // Reset
+  pdf.setTextColor(0, 0, 0);
+  pdf.setDrawColor(26, 107, 181);
+  pdf.setLineWidth(0.3);
+  pdf.line(0, 38, pageWidth, 38);
+
+  return 44;
+};
+
+// ─── PDF Footer ───────────────────────────────────────────────────
+const addPDFFooter = (pdf: any): void => {
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  pdf.setFontSize(8);
+  pdf.setTextColor(120, 120, 120);
+  pdf.setDrawColor(200, 200, 200);
+  pdf.line(14, pageHeight - 16, pageWidth - 14, pageHeight - 16);
+  pdf.text('Groupe Assistant Rhumato — Burkina Faso', 14, pageHeight - 8);
+  pdf.text(`Page ${pdf.internal.getCurrentPageInfo().pageNumber}`, pageWidth - 20, pageHeight - 8);
+  pdf.setTextColor(0, 0, 0);
+};
+
 type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications';
 
 const AdminPage: React.FC = () => {
@@ -56,15 +125,17 @@ const AdminPage: React.FC = () => {
   };
 
   // Export PDF - users
-  const exportUsersPDF = () => {
+  const exportUsersPDF = async () => {
+    const logo = await getLogoBase64();
     const pdf = new jsPDF();
-    pdf.setFontSize(18);
-    pdf.text('Assistant Rhumato — Liste des utilisateurs', 14, 22);
-    pdf.setFontSize(10);
-    pdf.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')}`, 14, 30);
+    const startY = addPDFHeader(pdf, 'Liste des utilisateurs', logo, 'Groupe Assistant Rhumato');
     const filtered = users.filter(u => cityFilter === 'Tous' || u.city === cityFilter);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`${filtered.length} médecin${filtered.length > 1 ? 's' : ''} — Filtre: ${cityFilter}`, 14, startY - 4);
+    pdf.setTextColor(0, 0, 0);
     autoTable(pdf, {
-      startY: 36,
+      startY,
       head: [['Nom', 'Email', 'Ville', 'Inscription']],
       body: filtered.map(u => [
         u.displayName,
@@ -72,8 +143,12 @@ const AdminPage: React.FC = () => {
         u.city,
         new Date(u.createdAt).toLocaleDateString('fr-FR'),
       ]),
-      headStyles: { fillColor: [26, 107, 181] },
+      headStyles: { fillColor: [26, 107, 181], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 249, 255] },
+      styles: { fontSize: 9 },
+      didDrawPage: () => addPDFFooter(pdf),
     });
+    addPDFFooter(pdf);
     pdf.save('utilisateurs_rhumato.pdf');
   };
 
@@ -399,18 +474,24 @@ const InvitationsAdmin: React.FC<{ users: UserProfile[]; invitations: Invitation
       .map(d => d.data() as Confirmation)
       .filter(c => c.invitationId === invId && c.response === 'confirmed');
 
+    const logo = await getLogoBase64();
     const pdf = new jsPDF();
-    pdf.setFontSize(16);
-    pdf.text(`Participants confirmés — ${invTitle}`, 14, 20);
-    pdf.setFontSize(10);
-    pdf.text(`Exporté le ${new Date().toLocaleDateString('fr-FR')} — ${confirmed.length} confirmés`, 14, 28);
+    const startY = addPDFHeader(pdf, `Participants — ${invTitle}`, logo, 'Groupe Assistant Rhumato');
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`${confirmed.length} participant${confirmed.length > 1 ? 's' : ''} confirmé${confirmed.length > 1 ? 's' : ''}`, 14, startY - 4);
+    pdf.setTextColor(0, 0, 0);
     autoTable(pdf, {
-      startY: 34,
+      startY,
       head: [['Nom', 'Email', 'Ville']],
       body: confirmed.map(c => [c.userName, c.userEmail, c.userCity]),
-      headStyles: { fillColor: [109, 40, 217] },
+      headStyles: { fillColor: [109, 40, 217], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 245, 255] },
+      styles: { fontSize: 9 },
+      didDrawPage: () => addPDFFooter(pdf),
     });
-    pdf.save(`participants_${invId}.pdf`);
+    addPDFFooter(pdf);
+    pdf.save(`participants_${invTitle.replace(/\s+/g, '_')}.pdf`);
   };
 
   const CITIES = ['Ouagadougou', 'Bobo Dioulasso', 'Koudougou', 'Kaya', 'Koupéla', 'Autre'];

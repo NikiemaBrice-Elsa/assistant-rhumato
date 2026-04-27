@@ -135,21 +135,7 @@ const LoginPage: React.FC = () => {
             {loading ? 'Connexion en cours...' : 'Continuer avec Google'}
           </button>
 
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '1rem',
-            background: 'var(--primary-light)',
-            borderRadius: 8,
-            fontSize: '0.8rem',
-            color: 'var(--text-muted)',
-            lineHeight: 1.5,
-          }}>
-            <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: 4 }}>
-              Accès professionnel
-            </strong>
-            Cette plateforme est destinée aux médecins généralistes et professionnels de santé du Burkina Faso.
-            Votre compte Google sera utilisé pour authentifier votre identité.
-          </div>
+
         </div>
 
         {/* Features preview */}

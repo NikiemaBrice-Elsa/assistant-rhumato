@@ -54,7 +54,7 @@ const CATDetailPage: React.FC = () => {
   if (!cat) {
     return (
       <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-        <div style={{ fontSize: 48 }}>❓</div>
+<div style={{ fontSize: 32, color: "var(--text-muted)", marginBottom: "1rem" }}>—</div>
         <div style={{ fontWeight: 600, marginBottom: '1rem', color: 'var(--text)' }}>Fiche non trouvée</div>
         <Link to="/cats" className="btn-primary">Retour aux CAT</Link>
       </div>
@@ -122,7 +122,7 @@ const CATDetailPage: React.FC = () => {
       {/* Diagnostics */}
       <Section
         title="Hypothèses diagnostiques"
-        icon={<span style={{ fontSize: 12 }}>🔬</span>}
+        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
         items={cat.diagnostics}
         color="#7c3aed"
         bg="#ede9fe"
@@ -131,7 +131,7 @@ const CATDetailPage: React.FC = () => {
       {/* Bilan */}
       <Section
         title="Bilan de première intention"
-        icon={<span style={{ fontSize: 12 }}>📋</span>}
+        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}
         items={cat.bilan}
         color="#b45309"
         bg="#fef3c7"

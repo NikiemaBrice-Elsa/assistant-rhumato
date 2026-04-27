@@ -82,7 +82,7 @@ const EventsPage: React.FC = () => {
         </div>
       ) : events.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: 48, marginBottom: '1rem' }}>📅</div>
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <div style={{ fontWeight: 500 }}>Aucun évènement programmé</div>
         </div>
       ) : (

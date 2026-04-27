@@ -52,15 +52,8 @@ const LoginPage: React.FC = () => {
       <div style={{ width: '100%', maxWidth: 440 }} className="animate-fade">
         {/* Logo + title */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            width: 80, height: 80,
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-            borderRadius: 20,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem',
-            boxShadow: '0 8px 24px rgba(26,107,181,0.35)',
-          }}>
-            <span style={{ fontSize: 36 }}>🩺</span>
+          <div style={{ margin: '0 auto 1rem', width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="Assistant Rhumato" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 24px rgba(26,107,181,0.35)' }} />
           </div>
           <h1 style={{
             fontFamily: 'Sora, sans-serif',
@@ -159,9 +152,9 @@ const LoginPage: React.FC = () => {
           gap: '0.75rem', marginTop: '1.5rem',
         }}>
           {[
-            { icon: '📋', label: 'Fiches CAT' },
-            { icon: '💊', label: 'Médicaments' },
-            { icon: '👥', label: 'Communauté' },
+            { icon: null, label: 'Fiches CAT', svg: 'filetext' },
+            { icon: null, label: 'Médicaments', svg: 'pill' },
+            { icon: null, label: 'Communauté', svg: 'users' },
           ].map(f => (
             <div key={f.label} style={{
               textAlign: 'center', padding: '0.875rem 0.5rem',
@@ -169,7 +162,11 @@ const LoginPage: React.FC = () => {
               border: '1px solid var(--border)',
               fontSize: '0.8rem', color: 'var(--text-muted)',
             }}>
-              <div style={{ fontSize: 22, marginBottom: 4 }}>{f.icon}</div>
+              <div style={{ marginBottom: 4 }}>
+                {f.svg === 'filetext' && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a6bb5" strokeWidth="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>}
+                {f.svg === 'pill' && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a085" strokeWidth="1.8"><path d="M10.5 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12.5"/><path d="M8 16l2-4 3 6 2-3 2 3"/></svg>}
+                {f.svg === 'users' && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
+              </div>
               {f.label}
             </div>
           ))}

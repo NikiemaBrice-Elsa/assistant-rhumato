@@ -205,7 +205,7 @@ const MainLayout: React.FC = () => {
               {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 20 }}>🩺</span>
+  <img src="/logo.png" alt="AR" style={{ width: 26, height: 26, borderRadius: 6, objectFit: "cover" }} />
               <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)' }}>
                 Assistant Rhumato
               </span>

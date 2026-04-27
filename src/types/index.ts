@@ -32,10 +32,17 @@ export interface OrdonnanceItem {
   note?: string;
 }
 
+export interface NomCommercialEntry {
+  nom: string;
+  dateDebut?: string;   // Date de début de publication (YYYY-MM-DD)
+  dateFin?: string;     // Date de fin (expiration) de la publication
+}
+
 export interface Medication {
   id: string;
   dci: string;
-  nomCommercial: string[];
+  nomCommercial: string[];                   // Noms simples (compatibilité)
+  nomsCommerciaux?: NomCommercialEntry[];    // Noms avec dates de publication
   classe: string;
   posologie: string;
   contreIndications: string[];

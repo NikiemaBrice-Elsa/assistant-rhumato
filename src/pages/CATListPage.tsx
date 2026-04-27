@@ -62,7 +62,7 @@ const CATListPage: React.FC = () => {
 
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: 48, marginBottom: '1rem' }}>🔍</div>
+<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <div style={{ fontWeight: 500 }}>Aucun résultat</div>
           <div style={{ fontSize: '0.875rem', marginTop: 4 }}>Essayez un autre terme de recherche</div>
         </div>

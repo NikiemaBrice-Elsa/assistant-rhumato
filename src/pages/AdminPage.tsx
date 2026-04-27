@@ -107,7 +107,7 @@ const AdminPage: React.FC = () => {
         color: 'white',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 28 }}>🔐</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <div>
             <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 700, margin: 0 }}>
               Dashboard Administrateur
@@ -454,7 +454,7 @@ const InvitationsAdmin: React.FC<{ users: UserProfile[]; invitations: Invitation
               </div>
               <div>
                 <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>
-                  📧 Envoyer un email aux médecins sélectionnés
+                  Envoyer un email aux médecins sélectionnés
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
                   Utilise la collection Firestore <code style={{ background: 'var(--surface)', padding: '1px 4px', borderRadius: 3 }}>mail</code> —

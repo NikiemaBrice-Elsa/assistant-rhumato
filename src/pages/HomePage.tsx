@@ -49,8 +49,8 @@ const HomePage: React.FC = () => {
             </div>
           </div>
           <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, lineHeight: 1.5 }}>
-            {isAdmin ? '🔐 Accès administrateur actif · ' : ''}
-            {userProfile?.city ? `📍 ${userProfile.city}` : ''}
+            {isAdmin ? 'Accès administrateur actif · ' : ''}
+            {userProfile?.city ? `Ville : ${userProfile.city}` : ''}
           </p>
         </div>
       </div>

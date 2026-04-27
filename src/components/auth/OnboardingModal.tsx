@@ -25,15 +25,7 @@ const OnboardingModal: React.FC = () => {
       <div className="modal animate-fade" style={{ padding: '2rem' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{
-            width: 64, height: 64,
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-            borderRadius: 16,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem',
-          }}>
-            <span style={{ fontSize: 28 }}>👨‍⚕️</span>
-          </div>
+          <img src="/logo.png" alt="AR" style={{ width: 64, height: 64, borderRadius: 16, objectFit: 'cover', margin: '0 auto 1rem', display: 'block', boxShadow: '0 4px 16px rgba(26,107,181,0.3)' }} />
           <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, margin: '0 0 0.5rem', color: 'var(--text)' }}>
             Bienvenue, {currentUser?.displayName?.split(' ')[0]} !
           </h2>

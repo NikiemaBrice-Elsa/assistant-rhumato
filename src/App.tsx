@@ -17,6 +17,7 @@ import EventsPage from './pages/EventsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import AboutPage from './pages/AboutPage';
+import PWABanner from './components/ui/PWABanner';
 
 const LoadingScreen: React.FC = () => (
   <div style={{
@@ -74,6 +75,7 @@ const App: React.FC = () => (
     <AuthProvider>
       <BrowserRouter>
         <AppRoutes />
+        <PWABanner />
         <Toaster
           position="top-right"
           toastOptions={{

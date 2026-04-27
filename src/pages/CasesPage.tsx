@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, getDocs, getDoc, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../services/firebase';
+import { db } from '../services/firebase';
 import { sendCaseApprovedEmail } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
 import { Heart, MessageCircle, Image, Send, X, Trash2, CheckCircle, XCircle } from 'lucide-react';
@@ -50,11 +49,15 @@ const CasesPage: React.FC = () => {
     if (!text.trim() || !question.trim()) return;
     setSubmitting(true);
     try {
+      // Conversion de l'image en base64 (pas besoin de Firebase Storage)
       let imageUrl = '';
       if (imageFile) {
-        const storageRef = ref(storage, `cases/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(storageRef, imageFile);
-        imageUrl = await getDownloadURL(storageRef);
+        imageUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('Lecture image échouée'));
+          reader.readAsDataURL(imageFile);
+        });
       }
       await addDoc(collection(db, 'cases'), {
         authorId: currentUser!.uid,

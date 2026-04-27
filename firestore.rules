@@ -77,5 +77,13 @@ service cloud.firestore {
       allow read: if isLoggedIn();
       allow write: if isAdmin();
     }
+
+    // Noms commerciaux des médicaments (sous-collection)
+    match /medications_noms/{medId}/noms/{nomId} {
+      allow read: if isLoggedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

@@ -598,13 +598,13 @@ const InvitationsAdmin: React.FC<{ users: UserProfile[]; invitations: Invitation
 
 const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onRefresh }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ nom: '', contact: '', telephone: '', email: '' });
+  const [form, setForm] = useState({ nom: '', contact: '', telephone: '', email: '', afficheUrl: '' });
 
   const handleSave = async () => {
     if (!form.nom) return;
     await addDoc(collection(db, 'labs'), { ...form, createdAt: new Date().toISOString() });
     setShowForm(false);
-    setForm({ nom: '', contact: '', telephone: '', email: '' });
+    setForm({ nom: '', contact: '', telephone: '', email: '', afficheUrl: '' });
     onRefresh();
   };
 
@@ -628,6 +628,13 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
             <input className="input" placeholder="Contact (nom)" value={form.contact} onChange={e => setForm({ ...form, contact: e.target.value })} />
             <input className="input" placeholder="Téléphone" value={form.telephone} onChange={e => setForm({ ...form, telephone: e.target.value })} />
             <input className="input" placeholder="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            <input className="input" placeholder="URL de l'affiche (lien image externe, ex: https://...)" value={form.afficheUrl} onChange={e => setForm({ ...form, afficheUrl: e.target.value })} />
+            {form.afficheUrl && (
+              <div style={{ marginTop: 4 }}>
+                <img src={form.afficheUrl} alt="Aperçu affiche" style={{ maxHeight: 120, borderRadius: 6, border: '1px solid var(--border)' }}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={handleSave} className="btn-primary"><Check size={14} /> Enregistrer</button>
               <button onClick={() => setShowForm(false)} className="btn-ghost"><X size={14} /> Annuler</button>
@@ -638,7 +645,7 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
 
       <div className="card table-wrapper">
         <table>
-          <thead><tr><th>Laboratoire</th><th>Contact</th><th>Téléphone</th><th>Email</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Laboratoire</th><th>Contact</th><th>Téléphone</th><th>Email</th><th>Affiche</th><th>Actions</th></tr></thead>
           <tbody>
             {labs.map(l => (
               <tr key={l.id}>
@@ -646,6 +653,14 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
                 <td style={{ fontSize: '0.85rem' }}>{l.contact}</td>
                 <td style={{ fontSize: '0.85rem' }}>{l.telephone}</td>
                 <td style={{ fontSize: '0.85rem' }}>{l.email}</td>
+                <td>
+                  {(l as any).afficheUrl ? (
+                    <a href={(l as any).afficheUrl} target="_blank" rel="noopener noreferrer">
+                      <img src={(l as any).afficheUrl} alt="affiche" style={{ height: 36, borderRadius: 4, objectFit: 'cover' }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                    </a>
+                  ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}
+                </td>
                 <td>
                   <button onClick={() => handleDelete(l.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
                     <Trash2 size={15} />
@@ -657,6 +672,7 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
         </table>
         {labs.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucun laboratoire partenaire</div>}
       </div>
+    </div>
     </div>
   );
 };

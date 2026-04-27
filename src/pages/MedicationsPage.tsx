@@ -91,6 +91,11 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
           )}
 
           {/* Liste noms */}
+          {localNames.length === 0 && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 0' }}>
+              Aucun nom commercial enregistré. Cliquez sur "+ Ajouter" pour en ajouter un.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {localNames.map((n, i) => {
               const expired = isExpired(n.dateFin);
@@ -109,7 +114,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
                       <div style={{ display: 'flex', gap: 8, marginTop: 2, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                         {n.dateDebut && <span><Calendar size={10} style={{ display: 'inline', marginRight: 2 }} />Depuis {formatDate(n.dateDebut)}</span>}
                         {n.dateFin && <span style={{ color: expired ? '#b91c1c' : '#15803d' }}>
-                          {expired ? '⚠ Expiré' : 'Jusqu\'au'} {formatDate(n.dateFin)}
+                          {expired ? 'Expiré' : 'Jusqu\'au'} {formatDate(n.dateFin)}
                         </span>}
                       </div>
                     )}
@@ -126,7 +131,6 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
           <InfoRow label="Posologie" value={med.posologie} />
           <InfoRow label="Contre-indications" value={med.contreIndications.join(', ')} danger />
           <InfoRow label="Effets secondaires" value={med.effetsSecondaires.join(', ')} />
-          <InfoRow label="Prix indicatif" value={med.prixIndicatif} />
         </div>
 
         <button onClick={onClose} className="btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '1.25rem' }}>
@@ -241,10 +245,15 @@ const MedicationsPage: React.FC = () => {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', fontFamily: 'Sora, sans-serif' }}>{med.dci}</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                    {med.nomCommercial.slice(0, 3).join(' · ')}
-                    {med.nomCommercial.length > 3 ? ` +${med.nomCommercial.length - 3}` : ''}
-                  </div>
+                  {med.nomCommercial.filter(Boolean).length > 0 ? (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                      {med.nomCommercial.slice(0, 3).join(' · ')}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
+                      Aucun nom commercial
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                   {med.disponibleLocalement && <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>Local</span>}

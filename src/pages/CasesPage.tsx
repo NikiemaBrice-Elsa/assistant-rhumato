@@ -244,7 +244,7 @@ const CasesPage: React.FC = () => {
                   borderLeft: '3px solid var(--primary)',
                   fontSize: '0.875rem', color: 'var(--text)', fontStyle: 'italic',
                 }}>
-                  💬 {c.question}
+                  {c.question}
                 </div>
 
                 {/* Actions */}

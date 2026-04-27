@@ -121,7 +121,7 @@ const EventsPage: React.FC = () => {
                     className={joined ? 'btn-secondary' : 'btn-primary'}
                     style={{ width: '100%', justifyContent: 'center' }}
                   >
-                    {joined ? <><Check size={15} /> Participation confirmée</> : '🎯 Participer'}
+{joined ? <><Check size={15} /> Participation confirmée</> : 'Participer'}
                   </button>
                 </div>
               </div>

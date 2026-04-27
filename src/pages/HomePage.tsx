@@ -38,7 +38,7 @@ const HomePage: React.FC = () => {
               <img src={currentUser.photoURL} alt="" style={{ width: 42, height: 42, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.5)' }} />
             ) : (
               <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-                {currentUser?.displayName?.charAt(0) || '👨‍⚕️'}
+                {currentUser?.displayName?.charAt(0) || 'M'}
               </div>
             )}
             <div>
@@ -145,7 +145,7 @@ const HomePage: React.FC = () => {
         padding: '1rem 1.25rem',
         display: 'flex', alignItems: 'flex-start', gap: 12,
       }}>
-        <div style={{ fontSize: 22, flexShrink: 0 }}>💡</div>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="1.8" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#15803d', marginBottom: 2 }}>
             Rappel clinique

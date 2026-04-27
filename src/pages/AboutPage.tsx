@@ -198,7 +198,7 @@ const AboutPage: React.FC = () => {
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 2 }}>Pays</div>
-            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.875rem' }}>Burkina Faso 🇧🇫</div>
+            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.875rem' }}>Burkina Faso</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 2 }}>Usage</div>

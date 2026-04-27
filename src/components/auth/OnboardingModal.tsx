@@ -66,7 +66,7 @@ const OnboardingModal: React.FC = () => {
             marginBottom: '1.25rem',
             lineHeight: 1.5,
           }}>
-            ℹ️ Cette information nous permet de vous mettre en relation avec des médecins de votre région et de cibler les formations locales.
+            Cette information nous permet de vous mettre en relation avec des médecins de votre région et de cibler les formations locales.
           </div>
 
           <button
@@ -75,7 +75,7 @@ const OnboardingModal: React.FC = () => {
             className="btn-primary"
             style={{ width: '100%', justifyContent: 'center', padding: '0.875rem' }}
           >
-            {loading ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Enregistrement...</> : 'Accéder à la plateforme →'}
+            {loading ? <><div className="spinner" style={{ width: 16, height: 16 }} /> Enregistrement...</> : 'Accéder à la plateforme'}
           </button>
         </form>
       </div>

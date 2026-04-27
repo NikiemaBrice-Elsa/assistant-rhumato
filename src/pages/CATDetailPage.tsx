@@ -170,7 +170,7 @@ const CATDetailPage: React.FC = () => {
                   background: '#fef3c7', borderRadius: 4,
                   fontSize: '0.78rem', color: '#92400e',
                 }}>
-                  ℹ️ {ord.note}
+                  {ord.note}
                 </div>
               )}
             </div>
@@ -194,7 +194,7 @@ const CATDetailPage: React.FC = () => {
               borderBottom: i < cat.quandReferer.length - 1 ? '1px solid #bbf7d0' : 'none',
               lineHeight: 1.5,
             }}>
-              <span>→</span><span>{r}</span>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{flexShrink:0,marginTop:2}}><polyline points="9,18 15,12 9,6"/></svg><span>{r}</span>
             </li>
           ))}
         </ul>

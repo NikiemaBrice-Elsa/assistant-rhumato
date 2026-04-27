@@ -38,7 +38,7 @@ const MainLayout: React.FC = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
           }}>
-            <span style={{ fontSize: 18 }}>🩺</span>
+            <img src="/logo.png" alt="AR" style={{ width: 18, height: 18, borderRadius: 4, objectFit: "cover" }} />
           </div>
           <div>
             <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)', lineHeight: 1.1 }}>

@@ -47,7 +47,7 @@ export interface Medication {
   posologie: string;
   contreIndications: string[];
   effetsSecondaires: string[];
-  prixIndicatif: string;
+  prixIndicatif?: string;
   disponibleLocalement: boolean;
   actif: boolean;
   createdAt?: string;

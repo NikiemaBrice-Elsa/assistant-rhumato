@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logoImg from '/logo.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -53,7 +54,12 @@ const LoginPage: React.FC = () => {
         {/* Logo + title */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ margin: '0 auto 1rem', width: 100, height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/logo.png" alt="Assistant Rhumato" style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 24px rgba(26,107,181,0.35)' }} />
+            <img 
+              src={logoImg} 
+              alt="Assistant Rhumato" 
+              style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 24px rgba(26,107,181,0.35)' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
           </div>
           <h1 style={{
             fontFamily: 'Sora, sans-serif',
@@ -139,7 +145,7 @@ const LoginPage: React.FC = () => {
             lineHeight: 1.5,
           }}>
             <strong style={{ color: 'var(--primary)', display: 'block', marginBottom: 4 }}>
-              🔒 Accès professionnel
+              Accès professionnel
             </strong>
             Cette plateforme est destinée aux médecins généralistes et professionnels de santé du Burkina Faso.
             Votre compte Google sera utilisé pour authentifier votre identité.

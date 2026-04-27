@@ -54,7 +54,7 @@ const ProfilePage: React.FC = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 1rem', fontSize: '2rem', color: 'white',
           }}>
-            {currentUser?.displayName?.charAt(0) || '👨‍⚕️'}
+            {currentUser?.displayName?.charAt(0) || 'M'}
           </div>
         )}
         <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.25rem', fontWeight: 700, margin: '0 0 4px', color: 'var(--text)' }}>

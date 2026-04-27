@@ -673,7 +673,6 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
         {labs.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucun laboratoire partenaire</div>}
       </div>
     </div>
-    </div>
   );
 };
 

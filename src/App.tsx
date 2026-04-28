@@ -17,7 +17,9 @@ import EventsPage from './pages/EventsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import AboutPage from './pages/AboutPage';
+import EvaluationPage from './pages/EvaluationPage';
 import PWABanner from './components/ui/PWABanner';
+import { requestNotificationPermission, onForegroundMessage } from './services/notificationService';
 
 const LoadingScreen: React.FC = () => (
   <div style={{
@@ -49,6 +51,24 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const AppRoutes: React.FC = () => {
   const { currentUser, loading, needsOnboarding } = useAuth();
+
+  // Demander permission notifications + écouter foreground
+  React.useEffect(() => {
+    if (!currentUser) return;
+    // Demander après 3s (non intrusif)
+    const t = setTimeout(() => {
+      requestNotificationPermission(currentUser.uid).catch(() => {});
+    }, 3000);
+    // Écouter messages en premier plan
+    const unsubscribe = onForegroundMessage((payload) => {
+      const { title, body } = payload.notification || {};
+      if (title && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body, icon: '/pwa-192x192.png' });
+      }
+    });
+    return () => { clearTimeout(t); if (typeof unsubscribe === 'function') unsubscribe(); };
+  }, [currentUser?.uid]);
+
   if (loading) return <LoadingScreen />;
   if (!currentUser) return <LoginPage />;
   if (needsOnboarding) return <OnboardingModal />;
@@ -64,6 +84,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/profil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="/a-propos" element={<PrivateRoute><AboutPage /></PrivateRoute>} />
+        <Route path="/evaluation" element={<PrivateRoute><EvaluationPage /></PrivateRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

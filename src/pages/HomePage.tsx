@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FileText, Pill, Share2, Calendar, ArrowRight, X, ExternalLink } from 'lucide-react';
+import { FileText, Pill, Share2, Calendar, ArrowRight, X, ExternalLink, RefreshCw } from 'lucide-react';
 import { MedIcon, CAT_ICON_MAP } from '../components/ui/MedIcons';
 import { db } from '../services/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -153,6 +153,17 @@ const HomePage: React.FC = () => {
       {showAd && ads[adIndex] && (
         <AdBanner ad={ads[adIndex]} onClose={handleAdClose} />
       )}
+
+      {/* Refresh button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn-ghost"
+          style={{ padding: '0.4rem 0.875rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <RefreshCw size={14} /> Actualiser
+        </button>
+      </div>
 
       {/* Hero greeting */}
       <div style={{

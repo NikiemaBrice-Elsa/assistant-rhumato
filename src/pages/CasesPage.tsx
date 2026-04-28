@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { triggerPushNotification } from '../services/notificationService';
 import { useAuth } from '../contexts/AuthContext';
 import { Heart, MessageCircle, Image, Send, X, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import type { ClinicalCase, CaseComment } from '../types';
@@ -139,6 +140,80 @@ const CommentsSection: React.FC<{ caseId: string; commentsCount: number; imageUr
   );
 };
 
+
+// ─── Cas clinique en bouton accordéon ────────────────────────────
+const CaseCard: React.FC<{
+  c: ClinicalCase;
+  liked: boolean;
+  onLike: () => void;
+  onDelete?: () => void;
+  formatDate: (iso: string) => string;
+}> = ({ c, liked, onLike, onDelete, formatDate }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="card animate-fade" style={{ overflow: 'hidden' }}>
+      {/* Bouton titre — toujours visible */}
+      <button onClick={() => setExpanded(e => !e)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0.875rem 1rem', background: 'none', border: 'none', cursor: 'pointer',
+        gap: 12, textAlign: 'left',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+          {c.authorPhoto ? (
+            <img src={c.authorPhoto} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600, fontSize: '0.85rem', flexShrink: 0 }}>
+              {c.authorName.charAt(0)}
+            </div>
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {c.question}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 1 }}>
+              {c.authorName} · {formatDate(c.createdAt)}
+              {' · '}{c.likes.length} <span style={{fontSize:'0.65rem'}}>♥</span>
+              {' · '}{c.commentsCount || 0} commentaire{(c.commentsCount||0)>1?'s':''}
+            </div>
+          </div>
+        </div>
+        <div style={{ flexShrink: 0, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'none' }}>
+          <ChevronDown size={18} />
+        </div>
+      </button>
+
+      {/* Contenu déplié */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '0.875rem 1rem' }}>
+          {onDelete && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button onClick={onDelete} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+          )}
+          <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: 'var(--text)', lineHeight: 1.6 }}>{c.text}</p>
+          {c.imageUrl && (
+            <img src={c.imageUrl} alt="Cas clinique" style={{ width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 8, marginBottom: '0.75rem', cursor: 'pointer' }}
+              onClick={() => window.open(c.imageUrl, '_blank')} />
+          )}
+          <div style={{ background: 'var(--primary-light)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.875rem', borderLeft: '3px solid var(--primary)', fontSize: '0.875rem', color: 'var(--text)', fontStyle: 'italic' }}>
+            {c.question}
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', paddingBottom: '0.5rem' }}>
+            <button onClick={onLike} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: liked ? '#dc2626' : 'var(--text-muted)', fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>
+              <Heart size={17} fill={liked ? '#dc2626' : 'none'} />
+              {c.likes.length}
+            </button>
+          </div>
+          <CommentsSection caseId={c.id} commentsCount={c.commentsCount || 0} imageUrl={c.imageUrl} />
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Page principale ─────────────────────────────────────────────
 const CasesPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -200,6 +275,8 @@ const CasesPage: React.FC = () => {
       });
       setText(''); setQuestion(''); setImageFile(null); setImagePreview('');
       setShowForm(false);
+      // Notification push
+      triggerPushNotification({ title: 'Nouveau cas clinique', body: question.slice(0, 80), url: '/cas-cliniques', tag: 'new-case' }).catch(() => {});
       await fetchCases();
     } catch (e) { console.error(e); }
     finally { setSubmitting(false); }
@@ -276,54 +353,10 @@ const CasesPage: React.FC = () => {
           {cases.map(c => {
             const liked = c.likes.includes(currentUser!.uid);
             return (
-              <div key={c.id} className="card animate-fade" style={{ padding: '1.25rem' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {c.authorPhoto ? (
-                      <img src={c.authorPhoto} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 600 }}>
-                        {c.authorName.charAt(0)}
-                      </div>
-                    )}
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text)' }}>{c.authorName}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(c.createdAt)}</div>
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Contenu */}
-                <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: 'var(--text)', lineHeight: 1.6 }}>{c.text}</p>
-                {c.imageUrl && (
-                  <img src={c.imageUrl} alt="Cas clinique" style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 8, marginBottom: '0.75rem' }} />
-                )}
-                <div style={{ background: 'var(--primary-light)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.875rem', borderLeft: '3px solid var(--primary)', fontSize: '0.875rem', color: 'var(--text)', fontStyle: 'italic' }}>
-                  {c.question}
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: '1rem', paddingBottom: '0.5rem' }}>
-                  <button onClick={() => handleLike(c.id, liked)} style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: liked ? '#dc2626' : 'var(--text-muted)',
-                    fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0,
-                  }}>
-                    <Heart size={17} fill={liked ? '#dc2626' : 'none'} />
-                    {c.likes.length}
-                  </button>
-                </div>
-
-                {/* Commentaires (tous peuvent lire et commenter) */}
-                <CommentsSection caseId={c.id} commentsCount={c.commentsCount || 0} imageUrl={c.imageUrl} />
-              </div>
+              <CaseCard key={c.id} c={c} liked={liked}
+                onLike={() => handleLike(c.id, liked)}
+                onDelete={isAdmin ? () => handleDelete(c.id) : undefined}
+                formatDate={formatDate} />
             );
           })}
         </div>

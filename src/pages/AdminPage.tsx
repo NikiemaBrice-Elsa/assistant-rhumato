@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { triggerPushNotification } from '../services/notificationService';
 import { sendInvitationEmail } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -415,6 +416,7 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
   const handleSave = async () => {
     if (!form.title || !form.date) return;
     await addDoc(collection(db, 'events'), { ...form, createdAt: new Date().toISOString() });
+    triggerPushNotification({ title: 'Nouvel évènement', body: form.title, url: '/evenements', tag: 'new-event' }).catch(() => {});
     setShowForm(false);
     setForm({ title: '', date: '', heure: '', city: '', organizer: '', description: '', type: 'formation', pdfUrl: '', lienUrl: '' });
     onRefresh();

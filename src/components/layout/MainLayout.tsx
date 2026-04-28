@@ -4,58 +4,65 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   Home, FileText, Pill, Share2, Calendar, User,
-  Shield, Menu, X, Sun, Moon, LogOut, Info,
+  Shield, Menu, X, Sun, Moon, LogOut, Info, Star,
 } from 'lucide-react';
 import { db } from '../../services/firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 
 // ─── Hook notifications ───────────────────────────────────────────
-const useNotifications = () => {
+const useNotifications = (userId?: string) => {
   const [badges, setBadges] = useState<Record<string, number>>({});
+  const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const LAST_KEY = 'ar_last_seen';
-    let lastSeen: Record<string, string> = {};
-    try { lastSeen = JSON.parse(localStorage.getItem(LAST_KEY) || '{}'); } catch {}
+    if (!userId) return;
 
-    const check = async () => {
+    // Charger les dernières visites depuis Firestore (persistance cross-device)
+    const loadAndCheck = async () => {
       try {
+        let seen: Record<string, string> = {};
+        const ref = doc(db, 'user_last_seen', userId);
+        const snap = await getDoc(ref);
+        if (snap.exists()) seen = snap.data() as Record<string, string>;
+        setLastSeen(seen);
+
         const newBadges: Record<string, number> = {};
 
         // Cas cliniques
-        const casSnap = await getDocs(query(collection(db, 'cases'),
-          orderBy('createdAt', 'desc'), limit(20)));
-        const lastCas = lastSeen['cas'] || '';
-        newBadges['cas'] = casSnap.docs.filter(d => d.data().createdAt > lastCas && d.data().status === 'approved').length;
-
-        // Médicaments (noms commerciaux ajoutés)
-        const medSnap = await getDocs(query(collection(db, 'medications'),
-          orderBy('createdAt', 'desc'), limit(20)));
-        const lastMed = lastSeen['medicaments'] || '';
-        newBadges['medicaments'] = medSnap.docs.filter(d => d.data().createdAt > lastMed).length;
+        const casSnap = await getDocs(query(collection(db, 'cases'), orderBy('createdAt', 'desc'), limit(30)));
+        const lastCas = seen['cas'] || '';
+        newBadges['cas'] = casSnap.docs.filter(d => (d.data().createdAt || '') > lastCas && d.data().status === 'approved').length;
 
         // Évènements
-        const evSnap = await getDocs(query(collection(db, 'events'),
-          orderBy('createdAt', 'desc'), limit(20)));
-        const lastEv = lastSeen['evenements'] || '';
-        newBadges['evenements'] = evSnap.docs.filter(d => d.data().createdAt > lastEv).length;
+        const evSnap = await getDocs(query(collection(db, 'events'), orderBy('createdAt', 'desc'), limit(20)));
+        const lastEv = seen['evenements'] || '';
+        newBadges['evenements'] = evSnap.docs.filter(d => (d.data().createdAt || '') > lastEv).length;
+
+        // Médicaments custom (collection Firestore)
+        try {
+          const medSnap = await getDocs(query(collection(db, 'medications'), orderBy('createdAt', 'desc'), limit(20)));
+          const lastMed = seen['medicaments'] || '';
+          newBadges['medicaments'] = medSnap.docs.filter(d => (d.data().createdAt || '') > lastMed).length;
+        } catch { newBadges['medicaments'] = 0; }
 
         setBadges(newBadges);
       } catch {}
     };
 
-    check();
-    const interval = setInterval(check, 5 * 60 * 1000); // refresh every 5 min
+    loadAndCheck();
+    const interval = setInterval(loadAndCheck, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]);
 
-  const markSeen = (route: string) => {
-    const LAST_KEY = 'ar_last_seen';
-    let lastSeen: Record<string, string> = {};
-    try { lastSeen = JSON.parse(localStorage.getItem(LAST_KEY) || '{}'); } catch {}
-    lastSeen[route] = new Date().toISOString();
-    localStorage.setItem(LAST_KEY, JSON.stringify(lastSeen));
+  const markSeen = async (route: string) => {
+    if (!userId) return;
+    const now = new Date().toISOString();
+    const updated = { ...lastSeen, [route]: now };
+    setLastSeen(updated);
     setBadges(prev => ({ ...prev, [route]: 0 }));
+    try {
+      await setDoc(doc(db, 'user_last_seen', userId), updated, { merge: true });
+    } catch {}
   };
 
   return { badges, markSeen };
@@ -122,13 +129,14 @@ const navItems = [
   { to: '/evenements', label: 'Évènements', icon: Calendar, key: 'evenements' },
   { to: '/profil', label: 'Mon profil', icon: User, key: 'profil' },
   { to: '/a-propos', label: 'À propos', icon: Info, key: 'apropos' },
+  { to: '/evaluation', label: 'Évaluation', icon: Star, key: 'evaluation' },
 ];
 
 const MainLayout: React.FC = () => {
   const { currentUser, userProfile, isAdmin, logout } = useAuth();
   const { dark, toggleDark } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { badges, markSeen } = useNotifications();
+  const { badges, markSeen } = useNotifications(currentUser?.uid);
 
   const handleLogout = async () => {
     if (confirm('Se déconnecter ?')) await logout();

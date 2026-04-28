@@ -94,5 +94,29 @@ service cloud.firestore {
       allow create: if isLoggedIn();
       allow delete: if isAdmin();
     }
+
+    // Tokens FCM pour notifications push
+    match /fcm_tokens/{userId} {
+      allow read: if isAdmin();
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Queue de notifications push (lu par Cloud Function)
+    match /push_queue/{notifId} {
+      allow create: if isLoggedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Dernière visite par onglet (persistence notifications)
+    match /user_last_seen/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Évaluations de l'application
+    match /evaluations/{evalId} {
+      allow read: if isLoggedIn();
+      allow create: if isLoggedIn();
+      allow delete: if isAdmin();
+    }
   }
 }

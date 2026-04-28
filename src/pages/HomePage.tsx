@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FileText, Pill, Share2, Calendar, ArrowRight } from 'lucide-react';
+import { FileText, Pill, Share2, Calendar, ArrowRight, X, ExternalLink } from 'lucide-react';
 import { MedIcon, CAT_ICON_MAP } from '../components/ui/MedIcons';
+import { db } from '../services/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import type { Ad } from '../types';
 
 const CATS_QUICK = [
   { id: 'lombalgie', label: 'Lombalgie', icon: 'bone' },
@@ -13,13 +16,107 @@ const CATS_QUICK = [
   { id: 'gonalgie', label: 'Gonalgie', icon: 'knee' },
 ];
 
+// ─── Bannière pub ─────────────────────────────────────────────────
+const AdBanner: React.FC<{ ad: Ad; onClose: () => void }> = ({ ad, onClose }) => {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => { setVisible(false); onClose(); }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!visible) return null;
+
+  const content = (
+    <div style={{
+      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 1000, width: 'calc(100% - 2rem)', maxWidth: 480,
+      background: 'white', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+      border: '1px solid var(--border)', overflow: 'hidden',
+      animation: 'slideUp 0.3s ease',
+    }}>
+      {ad.imageUrl && (
+        <img src={ad.imageUrl} alt={ad.title} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', display: 'block' }} />
+      )}
+      <div style={{ padding: '0.875rem 1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
+              {ad.laboName} · Publicité
+            </div>
+            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', fontFamily: 'Sora, sans-serif' }}>{ad.title}</div>
+            {ad.description && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.4 }}>{ad.description}</div>}
+          </div>
+          <button onClick={e => { e.stopPropagation(); setVisible(false); onClose(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 0 0 8px', flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+        {(ad as any).lienUrl && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <a href={(ad as any).lienUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.78rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+              <ExternalLink size={12} /> En savoir plus
+            </a>
+          </div>
+        )}
+        {/* Barre de progression 5s */}
+        <div style={{ marginTop: 8, height: 3, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: 'var(--primary)', borderRadius: 2, animation: 'adProgress 5s linear forwards' }} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (ad as any).lienUrl ? (
+    <a href={(ad as any).lienUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit' }}>
+      {content}
+    </a>
+  ) : <>{content}</>;
+};
+
 const HomePage: React.FC = () => {
   const { currentUser, userProfile, isAdmin } = useAuth();
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [adIndex, setAdIndex] = useState(0);
+  const [showAd, setShowAd] = useState(false);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir';
 
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const snap = await getDocs(query(collection(db, 'ads'), where('status', '==', 'active')));
+        const activeAds = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Ad))
+          .filter(a => !a.expiresAt || a.expiresAt >= today);
+        setAds(activeAds);
+        if (activeAds.length > 0) {
+          setTimeout(() => setShowAd(true), 1500);
+        }
+      } catch {}
+    };
+    fetchAds();
+  }, []);
+
+  const handleAdClose = useCallback(() => {
+    setShowAd(false);
+    if (adIndex < ads.length - 1) {
+      setTimeout(() => { setAdIndex(i => i + 1); setShowAd(true); }, 1000);
+    }
+  }, [adIndex, ads.length]);
+
   return (
     <div className="animate-fade">
+      <style>{`
+        @keyframes slideUp { from { transform: translateX(-50%) translateY(20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+        @keyframes adProgress { from { width: 100%; } to { width: 0%; } }
+      `}</style>
+
+      {/* Bannière pub */}
+      {showAd && ads[adIndex] && (
+        <AdBanner ad={ads[adIndex]} onClose={handleAdClose} />
+      )}
+
       {/* Hero greeting */}
       <div style={{
         background: 'linear-gradient(135deg, var(--primary) 0%, #0d5299 100%)',
@@ -62,7 +159,7 @@ const HomePage: React.FC = () => {
       }}>
         {[
           { to: '/cats', icon: FileText, label: 'CAT Rhumatologie', desc: '10 fiches cliniques', color: 'var(--primary)', bg: 'var(--primary-light)' },
-          { to: '/medicaments', icon: Pill, label: 'Médicaments', desc: '20 médicaments', color: '#16a085', bg: '#e0f5f0' },
+          { to: '/medicaments', icon: Pill, label: "Médicaments d'usage courant", desc: '17 molécules', color: '#16a085', bg: '#e0f5f0' },
           { to: '/cas-cliniques', icon: Share2, label: 'Cas cliniques', desc: 'Communauté', color: '#7c3aed', bg: '#ede9fe' },
           { to: '/evenements', icon: Calendar, label: 'Évènements', desc: 'Formations & congrès', color: '#b45309', bg: '#fef3c7' },
         ].map(item => (
@@ -145,13 +242,13 @@ const HomePage: React.FC = () => {
         padding: '1rem 1.25rem',
         display: 'flex', alignItems: 'flex-start', gap: 12,
       }}>
-<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="1.8" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#15803d" strokeWidth="1.8" style={{flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <div>
           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#15803d', marginBottom: 2 }}>
             Rappel clinique
           </div>
           <div style={{ fontSize: '0.8rem', color: '#166534', lineHeight: 1.5 }}>
-            Tout genou chaud et fébrile doit faire évoquer une <strong>arthrite septique</strong> jusqu'à preuve du contraire. 
+            Tout genou chaud et fébrile doit faire évoquer une <strong>arthrite septique</strong> jusqu'à preuve du contraire.
             Une ponction articulaire urgente s'impose.
           </div>
         </div>

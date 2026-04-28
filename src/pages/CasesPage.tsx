@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, getDoc, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, getDoc, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { sendCaseApprovedEmail } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,14 +20,17 @@ const CasesPage: React.FC = () => {
   const fetchCases = async () => {
     setLoading(true);
     try {
-      let q;
-      if (isAdmin) {
-        q = query(collection(db, 'cases'), orderBy('createdAt', 'desc'));
-      } else {
-        q = query(collection(db, 'cases'), where('status', '==', 'approved'), orderBy('createdAt', 'desc'));
-      }
+      // Charger tous les cas approuvés + les cas de l'utilisateur courant
+      const q = query(collection(db, 'cases'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
-      setCases(snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalCase)));
+      const allCases = snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalCase));
+      // Filtrer côté client : approuvés pour tous, + pending/rejected pour auteur et admin
+      const visible = allCases.filter(c =>
+        c.status === 'approved' ||
+        isAdmin ||
+        c.authorId === currentUser?.uid
+      );
+      setCases(visible);
     } catch (e) {
       console.error(e);
     } finally {
@@ -49,7 +52,6 @@ const CasesPage: React.FC = () => {
     if (!text.trim() || !question.trim()) return;
     setSubmitting(true);
     try {
-      // Conversion de l'image en base64 (pas besoin de Firebase Storage)
       let imageUrl = '';
       if (imageFile) {
         imageUrl = await new Promise<string>((resolve, reject) => {
@@ -66,7 +68,7 @@ const CasesPage: React.FC = () => {
         text,
         imageUrl,
         question,
-        status: isAdmin ? 'approved' : 'pending',
+        status: 'approved', // Visible immédiatement
         likes: [],
         createdAt: new Date().toISOString(),
         commentsCount: 0,
@@ -88,11 +90,9 @@ const CasesPage: React.FC = () => {
 
   const handleModerate = async (caseId: string, status: 'approved' | 'rejected') => {
     await updateDoc(doc(db, 'cases', caseId), { status });
-    // Notifier l'auteur si cas approuvé
     if (status === 'approved') {
       const approvedCase = cases.find(c => c.id === caseId);
       if (approvedCase) {
-        // Récupérer l'email de l'auteur depuis Firestore users
         getDoc(doc(db, 'users', approvedCase.authorId)).then(snap => {
           if (snap.exists() && snap.data().email) {
             sendCaseApprovedEmail({
@@ -128,7 +128,6 @@ const CasesPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Form */}
       {showForm && (
         <div className="card animate-fade" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
           <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: '0 0 1rem', color: 'var(--text)' }}>
@@ -169,23 +168,16 @@ const CasesPage: React.FC = () => {
               Publier
             </button>
           </div>
-
-          {!isAdmin && (
-            <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', background: '#fef3c7', borderRadius: 6, fontSize: '0.78rem', color: '#92400e' }}>
-              ⏳ Votre cas sera visible après validation par l'administrateur.
-            </div>
-          )}
         </div>
       )}
 
-      {/* Cases feed */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
           <div className="spinner" style={{ width: 32, height: 32 }} />
         </div>
       ) : cases.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
           <div style={{ fontWeight: 500 }}>Aucun cas publié pour l'instant</div>
           <div style={{ fontSize: '0.875rem', marginTop: 4 }}>Soyez le premier à partager un cas !</div>
         </div>
@@ -195,7 +187,6 @@ const CasesPage: React.FC = () => {
             const liked = c.likes.includes(currentUser!.uid);
             return (
               <div key={c.id} className="card animate-fade" style={{ padding: '1.25rem', opacity: c.status === 'rejected' ? 0.6 : 1 }}>
-                {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {c.authorPhoto ? (
@@ -233,14 +224,12 @@ const CasesPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Content */}
                 <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: 'var(--text)', lineHeight: 1.6 }}>{c.text}</p>
 
                 {c.imageUrl && (
                   <img src={c.imageUrl} alt="Cas clinique" style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 8, marginBottom: '0.75rem' }} />
                 )}
 
-                {/* Question */}
                 <div style={{
                   background: 'var(--primary-light)', borderRadius: 8,
                   padding: '0.75rem 1rem', marginBottom: '0.875rem',
@@ -250,7 +239,6 @@ const CasesPage: React.FC = () => {
                   {c.question}
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
                   <button onClick={() => handleLike(c.id, liked)} style={{
                     display: 'flex', alignItems: 'center', gap: 6,

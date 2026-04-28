@@ -333,14 +333,25 @@ const AdminPage: React.FC = () => {
 
 const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> = ({ events, onRefresh }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', date: '', heure: '', city: '', organizer: '', description: '', type: 'formation' as MedicalEvent['type'] });
+  const [form, setForm] = useState({ title: '', date: '', heure: '', city: '', organizer: '', description: '', type: 'formation' as MedicalEvent['type'], pdfUrl: '', lienUrl: '' });
+  const [confirmations, setConfirmations] = useState<{[eventId: string]: any[]}>({});
+  const [showConfirm, setShowConfirm] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!form.title || !form.date) return;
     await addDoc(collection(db, 'events'), { ...form, createdAt: new Date().toISOString() });
     setShowForm(false);
-    setForm({ title: '', date: '', heure: '', city: '', organizer: '', description: '', type: 'formation' });
+    setForm({ title: '', date: '', heure: '', city: '', organizer: '', description: '', type: 'formation', pdfUrl: '', lienUrl: '' });
     onRefresh();
+  };
+
+  const loadConfirmations = async (eventId: string) => {
+    if (confirmations[eventId]) { setShowConfirm(eventId); return; }
+    const snap = await getDocs(collection(db, 'confirmations'));
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const forEvent = all.filter((c: any) => c.invitationId === eventId);
+    setConfirmations(prev => ({ ...prev, [eventId]: forEvent }));
+    setShowConfirm(eventId);
   };
 
   const handleDelete = async (id: string) => {
@@ -375,6 +386,8 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
               <option value="sponsored">Sponsorisé</option>
             </select>
             <textarea className="input" placeholder="Description" rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+            <input className="input" placeholder="Lien PDF ou image (URL externe)" value={form.pdfUrl} onChange={e => setForm({ ...form, pdfUrl: e.target.value })} />
+            <input className="input" placeholder="Lien vidéo ou site (URL externe)" value={form.lienUrl} onChange={e => setForm({ ...form, lienUrl: e.target.value })} />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={handleSave} className="btn-primary"><Check size={14} /> Enregistrer</button>
               <button onClick={() => setShowForm(false)} className="btn-ghost"><X size={14} /> Annuler</button>
@@ -393,7 +406,10 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
                 <td style={{ fontSize: '0.85rem' }}>{new Date(e.date).toLocaleDateString('fr-FR')}</td>
                 <td style={{ fontSize: '0.85rem' }}>{e.city}</td>
                 <td><span className="badge badge-blue">{e.type}</span></td>
-                <td>
+                <td style={{ display: 'flex', gap: 4 }}>
+                  <button onClick={() => loadConfirmations(e.id)} className="btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }} title="Voir les participants">
+                    Participants
+                  </button>
                   <button onClick={() => handleDelete(e.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
                     <Trash2 size={15} />
                   </button>
@@ -404,6 +420,36 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
         </table>
         {events.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucun évènement</div>}
       </div>
+
+      {/* Modal participants */}
+      {showConfirm && (
+        <div className="modal-overlay" onClick={() => setShowConfirm(null)}>
+          <div className="modal" style={{ maxWidth: 500, padding: '1.5rem' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Participants confirmés</h3>
+              <button onClick={() => setShowConfirm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+            </div>
+            {(confirmations[showConfirm] || []).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Aucune confirmation pour cet évènement.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.5rem' }}>
+                {(confirmations[showConfirm] || []).map((c: any, i: number) => (
+                  <div key={i} style={{ padding: '0.75rem', background: 'var(--surface2)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text)' }}>{c.userName}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{c.userEmail}</div>
+                    </div>
+                    <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>Confirmé</span>
+                  </div>
+                ))}
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4, textAlign: 'right' }}>
+                  {(confirmations[showConfirm] || []).length} participant(s)
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -678,7 +724,7 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
 
 const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({ ads, labs, onRefresh }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ laboId: '', laboName: '', title: '', description: '', status: 'active' as Ad['status'], startsAt: '', expiresAt: '' });
+  const [form, setForm] = useState({ laboId: '', laboName: '', title: '', description: '', status: 'active' as Ad['status'], startsAt: '', expiresAt: '', imageUrl: '', lienUrl: '' });
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -733,6 +779,12 @@ const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({
                 <input className="input" type="date" value={form.expiresAt} onChange={e => setForm({ ...form, expiresAt: e.target.value })} />
               </div>
             </div>
+            <input className="input" placeholder="URL image (affiche pub, lien externe)" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} />
+            <input className="input" placeholder="URL lien (site, PDF, vidéo)" value={form.lienUrl} onChange={e => setForm({ ...form, lienUrl: e.target.value })} />
+            {form.imageUrl && (
+              <img src={form.imageUrl} alt="Aperçu" style={{ maxHeight: 100, borderRadius: 6, border: '1px solid var(--border)' }}
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            )}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={handleSave} className="btn-primary"><Check size={14} /> Publier</button>
               <button onClick={() => setShowForm(false)} className="btn-ghost"><X size={14} /> Annuler</button>

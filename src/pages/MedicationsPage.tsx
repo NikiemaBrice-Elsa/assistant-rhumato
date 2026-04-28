@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, Check, AlertCircle, Plus, Calendar } from 'lucide-react';
 import { MEDICATIONS_DATA, MEDICATION_CLASSES } from '../data/medications';
 import type { Medication, NomCommercialEntry } from '../types';
 import { db } from '../services/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 // ─── Modal détail médicament ──────────────────────────────────────
@@ -14,7 +14,31 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
   const [newDateDebut, setNewDateDebut] = useState('');
   const [newDateFin, setNewDateFin] = useState('');
   const [saving, setSaving] = useState(false);
-  const [localNames, setLocalNames] = useState<NomCommercialEntry[]>(med.nomsCommerciaux || med.nomCommercial.map(n => ({ nom: n })));
+  const [localNames, setLocalNames] = useState<NomCommercialEntry[]>([]);
+  const [loadingNames, setLoadingNames] = useState(true);
+
+  // Charger les noms depuis Firestore + noms de base
+  useEffect(() => {
+    const load = async () => {
+      setLoadingNames(true);
+      try {
+        const snap = await getDocs(collection(db, 'medications_noms', med.id, 'noms'));
+        const firestoreNames: NomCommercialEntry[] = snap.docs.map(d => d.data() as NomCommercialEntry);
+        // Fusionner noms de base (sans doublons) avec noms Firestore
+        const baseNames = med.nomCommercial.filter(Boolean).map(n => ({ nom: n }));
+        const allNoms = [
+          ...firestoreNames,
+          ...baseNames.filter(b => !firestoreNames.some(f => f.nom.toLowerCase() === b.nom.toLowerCase())),
+        ];
+        setLocalNames(allNoms);
+      } catch {
+        setLocalNames(med.nomsCommerciaux || med.nomCommercial.map(n => ({ nom: n })));
+      } finally {
+        setLoadingNames(false);
+      }
+    };
+    load();
+  }, [med.id]);
 
   const handleAddNom = async () => {
     if (!newNom.trim()) return;
@@ -65,7 +89,6 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
             )}
           </div>
 
-          {/* Formulaire ajout */}
           {showAddName && (
             <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '0.75rem', marginBottom: 8, border: '1px solid var(--border)' }}>
               <input className="input" placeholder="Nom commercial *" value={newNom} onChange={e => setNewNom(e.target.value)} style={{ marginBottom: 6 }} />
@@ -90,40 +113,42 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
             </div>
           )}
 
-          {/* Liste noms */}
-          {localNames.length === 0 && (
+          {loadingNames ? (
+            <div className="spinner" style={{ width: 16, height: 16, margin: '8px 0' }} />
+          ) : localNames.length === 0 ? (
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '6px 0' }}>
               {isAdmin ? 'Aucun nom commercial. Cliquez sur "+ Ajouter" pour en ajouter un.' : 'Aucun nom commercial enregistré.'}
             </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {localNames.map((n, i) => {
-              const expired = isExpired(n.dateFin);
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 10px',
-                  background: expired ? '#fef2f2' : 'var(--primary-light)',
-                  borderRadius: 6,
-                  border: `1px solid ${expired ? '#fca5a5' : '#bfdbfe'}`,
-                  opacity: expired ? 0.75 : 1,
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 500, color: expired ? '#b91c1c' : '#1d4ed8' }}>{n.nom}</div>
-                    {(n.dateDebut || n.dateFin) && (
-                      <div style={{ display: 'flex', gap: 8, marginTop: 2, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {n.dateDebut && <span><Calendar size={10} style={{ display: 'inline', marginRight: 2 }} />Depuis {formatDate(n.dateDebut)}</span>}
-                        {n.dateFin && <span style={{ color: expired ? '#b91c1c' : '#15803d' }}>
-                          {expired ? 'Expiré' : 'Jusqu\'au'} {formatDate(n.dateFin)}
-                        </span>}
-                      </div>
-                    )}
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {localNames.map((n, i) => {
+                const expired = isExpired(n.dateFin);
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '6px 10px',
+                    background: expired ? '#fef2f2' : 'var(--primary-light)',
+                    borderRadius: 6,
+                    border: `1px solid ${expired ? '#fca5a5' : '#bfdbfe'}`,
+                    opacity: expired ? 0.75 : 1,
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 500, color: expired ? '#b91c1c' : '#1d4ed8' }}>{n.nom}</div>
+                      {(n.dateDebut || n.dateFin) && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 2, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {n.dateDebut && <span><Calendar size={10} style={{ display: 'inline', marginRight: 2 }} />Depuis {formatDate(n.dateDebut)}</span>}
+                          {n.dateFin && <span style={{ color: expired ? '#b91c1c' : '#15803d' }}>
+                            {expired ? 'Expiré' : 'Jusqu\'au'} {formatDate(n.dateFin)}
+                          </span>}
+                        </div>
+                      )}
+                    </div>
+                    {expired && <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Expiré</span>}
                   </div>
-                  {expired && <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Expiré</span>}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Infos médicales */}
@@ -173,7 +198,6 @@ const MedicationsPage: React.FC = () => {
     });
   }, [search, classe, localOnly, refreshKey]);
 
-  // Group by class
   const grouped = useMemo(() => {
     if (classe !== 'Tous') return { [classe]: filtered };
     const g: Record<string, Medication[]> = {};
@@ -187,7 +211,7 @@ const MedicationsPage: React.FC = () => {
   return (
     <div className="animate-fade">
       <div style={{ marginBottom: '1.5rem' }}>
-        <h1 className="section-title">Médicaments courants</h1>
+        <h1 className="section-title">Médicaments d'usage courant en rhumato</h1>
         <p className="section-subtitle">Rhumatologie — {MEDICATIONS_DATA.length} molécules référencées</p>
 
         <div className="search-bar" style={{ marginBottom: '0.75rem' }}>
@@ -254,9 +278,6 @@ const MedicationsPage: React.FC = () => {
                       Aucun nom commercial
                     </div>
                   )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                  {med.disponibleLocalement && <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>Local</span>}
                 </div>
               </button>
             ))}

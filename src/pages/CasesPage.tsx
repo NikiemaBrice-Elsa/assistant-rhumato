@@ -1,11 +1,130 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, getDoc, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { sendCaseApprovedEmail } from '../services/emailService';
 import { useAuth } from '../contexts/AuthContext';
-import { Heart, MessageCircle, Image, Send, X, Trash2, CheckCircle, XCircle } from 'lucide-react';
-import type { ClinicalCase } from '../types';
+import { Heart, MessageCircle, Image, Send, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import type { ClinicalCase, CaseComment } from '../types';
 
+// ─── Section commentaires d'un cas ───────────────────────────────
+const CommentsSection: React.FC<{ caseId: string; commentsCount: number }> = ({ caseId, commentsCount }) => {
+  const { currentUser } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [comments, setComments] = useState<CaseComment[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const loadComments = async () => {
+    if (loaded) return;
+    try {
+      const snap = await getDocs(query(collection(db, 'cases', caseId, 'comments'), orderBy('createdAt', 'asc')));
+      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() } as CaseComment)));
+      setLoaded(true);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleToggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) loadComments();
+  };
+
+  const handleSend = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      const comment: Omit<CaseComment, 'id'> = {
+        caseId,
+        authorId: currentUser!.uid,
+        authorName: currentUser!.displayName || 'Médecin',
+        authorPhoto: currentUser!.photoURL || '',
+        text: text.trim(),
+        createdAt: new Date().toISOString(),
+      };
+      const ref = await addDoc(collection(db, 'cases', caseId, 'comments'), comment);
+      await updateDoc(doc(db, 'cases', caseId), { commentsCount: increment(1) });
+      setComments(prev => [...prev, { id: ref.id, ...comment }]);
+      setText('');
+    } catch (e) { console.error(e); }
+    finally { setSending(false); }
+  };
+
+  const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+  return (
+    <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+      {/* Toggle */}
+      <button onClick={handleToggle} style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: 'none', border: 'none', cursor: 'pointer',
+        color: open ? 'var(--primary)' : 'var(--text-muted)',
+        fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0,
+      }}>
+        <MessageCircle size={17} />
+        {commentsCount || 0} commentaire{(commentsCount || 0) > 1 ? 's' : ''}
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: '0.75rem' }}>
+          {/* Liste des commentaires */}
+          {comments.length === 0 ? (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '0.75rem' }}>
+              Aucun commentaire. Soyez le premier à répondre.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.625rem', marginBottom: '0.75rem' }}>
+              {comments.map(cm => (
+                <div key={cm.id} style={{ display: 'flex', gap: 8 }}>
+                  {cm.authorPhoto ? (
+                    <img src={cm.authorPhoto} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: 2 }} />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, marginTop: 2 }}>
+                      {cm.authorName.charAt(0)}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, background: 'var(--surface2)', borderRadius: 8, padding: '0.5rem 0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--text)' }}>{cm.authorName}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatDate(cm.createdAt)}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.5 }}>{cm.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Saisie nouveau commentaire */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {currentUser?.photoURL ? (
+              <img src={currentUser.photoURL} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: 4 }} />
+            ) : (
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, marginTop: 4 }}>
+                {currentUser?.displayName?.charAt(0) || 'M'}
+              </div>
+            )}
+            <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+              <input
+                className="input"
+                placeholder="Votre commentaire..."
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                style={{ flex: 1, padding: '0.45rem 0.75rem', fontSize: '0.85rem' }}
+              />
+              <button onClick={handleSend} disabled={!text.trim() || sending} className="btn-primary" style={{ padding: '0.45rem 0.75rem', minWidth: 0 }}>
+                {sending ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <Send size={14} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Page principale ─────────────────────────────────────────────
 const CasesPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
   const [cases, setCases] = useState<ClinicalCase[]>([]);
@@ -20,22 +139,15 @@ const CasesPage: React.FC = () => {
   const fetchCases = async () => {
     setLoading(true);
     try {
-      // Charger tous les cas approuvés + les cas de l'utilisateur courant
       const q = query(collection(db, 'cases'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
       const allCases = snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalCase));
-      // Filtrer côté client : approuvés pour tous, + pending/rejected pour auteur et admin
       const visible = allCases.filter(c =>
-        c.status === 'approved' ||
-        isAdmin ||
-        c.authorId === currentUser?.uid
+        c.status === 'approved' || isAdmin || c.authorId === currentUser?.uid
       );
       setCases(visible);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchCases(); }, [isAdmin]);
@@ -65,10 +177,8 @@ const CasesPage: React.FC = () => {
         authorId: currentUser!.uid,
         authorName: currentUser!.displayName || 'Médecin',
         authorPhoto: currentUser!.photoURL || '',
-        text,
-        imageUrl,
-        question,
-        status: 'approved', // Visible immédiatement
+        text, imageUrl, question,
+        status: 'approved',
         likes: [],
         createdAt: new Date().toISOString(),
         commentsCount: 0,
@@ -81,30 +191,12 @@ const CasesPage: React.FC = () => {
   };
 
   const handleLike = async (caseId: string, liked: boolean) => {
-    const ref = doc(db, 'cases', caseId);
-    await updateDoc(ref, { likes: liked ? arrayRemove(currentUser!.uid) : arrayUnion(currentUser!.uid) });
+    await updateDoc(doc(db, 'cases', caseId), {
+      likes: liked ? arrayRemove(currentUser!.uid) : arrayUnion(currentUser!.uid)
+    });
     setCases(prev => prev.map(c => c.id === caseId ? {
       ...c, likes: liked ? c.likes.filter(id => id !== currentUser!.uid) : [...c.likes, currentUser!.uid]
     } : c));
-  };
-
-  const handleModerate = async (caseId: string, status: 'approved' | 'rejected') => {
-    await updateDoc(doc(db, 'cases', caseId), { status });
-    if (status === 'approved') {
-      const approvedCase = cases.find(c => c.id === caseId);
-      if (approvedCase) {
-        getDoc(doc(db, 'users', approvedCase.authorId)).then(snap => {
-          if (snap.exists() && snap.data().email) {
-            sendCaseApprovedEmail({
-              to: snap.data().email,
-              authorName: approvedCase.authorName,
-              caseTitle: approvedCase.question.slice(0, 80),
-            }).catch(() => {});
-          }
-        }).catch(() => {});
-      }
-    }
-    setCases(prev => prev.map(c => c.id === caseId ? { ...c, status } : c));
   };
 
   const handleDelete = async (caseId: string) => {
@@ -130,25 +222,9 @@ const CasesPage: React.FC = () => {
 
       {showForm && (
         <div className="card animate-fade" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: '0 0 1rem', color: 'var(--text)' }}>
-            Nouveau cas clinique
-          </h3>
-          <textarea
-            className="input"
-            placeholder="Décrivez le cas clinique (présentation, contexte, histoire de la maladie...)"
-            value={text}
-            onChange={e => setText(e.target.value)}
-            rows={5}
-            style={{ marginBottom: '0.75rem' }}
-          />
-          <input
-            className="input"
-            placeholder="Question à la communauté (ex: Quel diagnostic évoquez-vous ?)"
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            style={{ marginBottom: '0.75rem' }}
-          />
-
+          <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: '0 0 1rem', color: 'var(--text)' }}>Nouveau cas clinique</h3>
+          <textarea className="input" placeholder="Décrivez le cas clinique..." value={text} onChange={e => setText(e.target.value)} rows={5} style={{ marginBottom: '0.75rem' }} />
+          <input className="input" placeholder="Question à la communauté (ex: Quel diagnostic évoquez-vous ?)" value={question} onChange={e => setQuestion(e.target.value)} style={{ marginBottom: '0.75rem' }} />
           {imagePreview && (
             <div style={{ position: 'relative', marginBottom: '0.75rem', display: 'inline-block' }}>
               <img src={imagePreview} alt="" style={{ maxHeight: 200, borderRadius: 8, display: 'block' }} />
@@ -157,7 +233,6 @@ const CasesPage: React.FC = () => {
               </button>
             </div>
           )}
-
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <label style={{ cursor: 'pointer' }} className="btn-ghost">
               <Image size={15} /> Ajouter une image
@@ -177,7 +252,7 @@ const CasesPage: React.FC = () => {
         </div>
       ) : cases.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+          <MessageCircle size={40} style={{ marginBottom: '1rem', opacity: 0.4 }} />
           <div style={{ fontWeight: 500 }}>Aucun cas publié pour l'instant</div>
           <div style={{ fontSize: '0.875rem', marginTop: 4 }}>Soyez le premier à partager un cas !</div>
         </div>
@@ -186,7 +261,8 @@ const CasesPage: React.FC = () => {
           {cases.map(c => {
             const liked = c.likes.includes(currentUser!.uid);
             return (
-              <div key={c.id} className="card animate-fade" style={{ padding: '1.25rem', opacity: c.status === 'rejected' ? 0.6 : 1 }}>
+              <div key={c.id} className="card animate-fade" style={{ padding: '1.25rem' }}>
+                {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {c.authorPhoto ? (
@@ -201,65 +277,37 @@ const CasesPage: React.FC = () => {
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(c.createdAt)}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {c.status === 'pending' && <span className="badge badge-yellow">En attente</span>}
-                    {c.status === 'rejected' && <span className="badge badge-red">Refusé</span>}
-                    {isAdmin && (
-                      <>
-                        {c.status === 'pending' && (
-                          <>
-                            <button onClick={() => handleModerate(c.id, 'approved')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#15803d' }} title="Approuver">
-                              <CheckCircle size={18} />
-                            </button>
-                            <button onClick={() => handleModerate(c.id, 'rejected')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }} title="Rejeter">
-                              <XCircle size={18} />
-                            </button>
-                          </>
-                        )}
-                        <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }} title="Supprimer">
-                          <Trash2 size={16} />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  {isAdmin && (
+                    <button onClick={() => handleDelete(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
 
+                {/* Contenu */}
                 <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: 'var(--text)', lineHeight: 1.6 }}>{c.text}</p>
-
                 {c.imageUrl && (
                   <img src={c.imageUrl} alt="Cas clinique" style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 8, marginBottom: '0.75rem' }} />
                 )}
-
-                <div style={{
-                  background: 'var(--primary-light)', borderRadius: 8,
-                  padding: '0.75rem 1rem', marginBottom: '0.875rem',
-                  borderLeft: '3px solid var(--primary)',
-                  fontSize: '0.875rem', color: 'var(--text)', fontStyle: 'italic',
-                }}>
+                <div style={{ background: 'var(--primary-light)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.875rem', borderLeft: '3px solid var(--primary)', fontSize: '0.875rem', color: 'var(--text)', fontStyle: 'italic' }}>
                   {c.question}
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: '1rem', paddingBottom: '0.5rem' }}>
                   <button onClick={() => handleLike(c.id, liked)} style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     background: 'none', border: 'none', cursor: 'pointer',
                     color: liked ? '#dc2626' : 'var(--text-muted)',
-                    fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif',
-                    padding: 0, transition: 'color 0.15s',
+                    fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0,
                   }}>
                     <Heart size={17} fill={liked ? '#dc2626' : 'none'} />
                     {c.likes.length}
                   </button>
-                  <button style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', fontSize: '0.85rem',
-                    fontFamily: 'DM Sans, sans-serif', padding: 0,
-                  }}>
-                    <MessageCircle size={17} />
-                    {c.commentsCount || 0} commentaire{(c.commentsCount || 0) > 1 ? 's' : ''}
-                  </button>
                 </div>
+
+                {/* Commentaires (tous peuvent lire et commenter) */}
+                <CommentsSection caseId={c.id} commentsCount={c.commentsCount || 0} />
               </div>
             );
           })}

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, ChevronDown, ChevronUp, FileText, Stethoscope, Pill, Phone } from 'lucide-react';
 import { MedIconBox, CAT_ICON_MAP } from '../components/ui/MedIcons';
 import { CATS_DATA } from '../data/cats';
+import { db } from '../services/firebase';
+import { doc, setDoc, increment, serverTimestamp } from 'firebase/firestore';
 
 const Section: React.FC<{ title: string; icon: React.ReactNode; items: string[]; color: string; bg: string; defaultOpen?: boolean }> = ({
   title, icon, items, color, bg, defaultOpen = true,
@@ -50,6 +52,23 @@ const CATDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const cat = CATS_DATA.find(c => c.id === id);
+
+  // Tracking des visites
+  useEffect(() => {
+    if (!id || !cat) return;
+    const track = async () => {
+      try {
+        const ref = doc(db, 'cat_stats', id);
+        await setDoc(ref, {
+          catId: id,
+          title: cat.title,
+          visits: increment(1),
+          lastVisit: serverTimestamp(),
+        }, { merge: true });
+      } catch {}
+    };
+    track();
+  }, [id]);
 
   if (!cat) {
     return (

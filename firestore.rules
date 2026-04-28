@@ -81,5 +81,18 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    // Statistiques de consultation des CAT
+    match /cat_stats/{catId} {
+      allow read: if isAdmin();
+      allow write: if isLoggedIn();
+    }
+
+    // Commentaires des cas cliniques
+    match /cases/{caseId}/comments/{commentId} {
+      allow read: if isLoggedIn();
+      allow create: if isLoggedIn();
+      allow delete: if isAdmin();
+    }
   }
 }

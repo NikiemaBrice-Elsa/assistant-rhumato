@@ -81,12 +81,13 @@ const addPDFFooter = (pdf: any): void => {
   pdf.setTextColor(0, 0, 0);
 };
 
-type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications';
+type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications' | 'stats';
 
 const AdminPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AdminTab>('users');
+  const [catStats, setCatStats] = useState<{catId:string;title:string;visits:number}[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [events, setEvents] = useState<MedicalEvent[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -119,6 +120,11 @@ const AdminPage: React.FC = () => {
       } else if (tab === 'ads') {
         const snap = await getDocs(query(collection(db, 'ads'), orderBy('createdAt', 'desc')));
         setAds(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ad)));
+      } else if (tab === 'stats') {
+        const snap = await getDocs(collection(db, 'cat_stats'));
+        const list = snap.docs.map(d => ({ catId: d.id, ...d.data() } as {catId:string;title:string;visits:number}));
+        list.sort((a, b) => (b.visits || 0) - (a.visits || 0));
+        setCatStats(list);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -161,6 +167,7 @@ const AdminPage: React.FC = () => {
     { key: 'labs', icon: <Building2 size={16} />, label: 'Labos' },
     { key: 'ads', icon: <Megaphone size={16} />, label: 'Publications' },
     { key: 'medications', icon: <Pill size={16} />, label: 'Médicaments' },
+    { key: 'stats', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, label: 'Stats CAT' },
   ];
 
   const CITIES = ['Tous', 'Ouagadougou', 'Bobo Dioulasso', 'Koudougou', 'Kaya', 'Koupéla', 'Autre'];
@@ -322,6 +329,46 @@ const AdminPage: React.FC = () => {
           {/* MEDICATIONS */}
           {tab === 'medications' && (
             <AdminMedications />
+          )}
+          {tab === 'stats' && (
+            <div className="animate-fade">
+              <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', marginBottom: '1rem', color: 'var(--text)' }}>
+                Consultations des fiches CAT
+              </h3>
+              {catStats.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  Aucune statistique disponible — les visites seront comptabilisées dès qu'un utilisateur ouvrira une fiche.
+                </div>
+              ) : (
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  {catStats.map((s, i) => {
+                    const maxVisits = catStats[0]?.visits || 1;
+                    const pct = Math.round((s.visits / maxVisits) * 100);
+                    return (
+                      <div key={s.catId} style={{
+                        padding: '0.875rem 1.25rem',
+                        borderBottom: i < catStats.length - 1 ? '1px solid var(--border)' : 'none',
+                        display: 'flex', alignItems: 'center', gap: '1rem',
+                      }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '0.75rem', color: 'var(--primary)' }}>
+                          {i + 1}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text)', marginBottom: 4 }}>{s.title}</div>
+                          <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: pct + '%', background: 'var(--primary)', borderRadius: 3 }} />
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: 'var(--primary)' }}>{s.visits}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>visite{s.visits > 1 ? 's' : ''}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}

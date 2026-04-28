@@ -182,6 +182,29 @@ const MedicationsPage: React.FC = () => {
   const [localOnly, setLocalOnly] = useState(false);
   const [selected, setSelected] = useState<Medication | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Noms commerciaux Firestore par médicament (id -> nom[])
+  const [firestoreNoms, setFirestoreNoms] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    // Charger les noms commerciaux de Firestore pour tous les médicaments
+    const loadAllNoms = async () => {
+      try {
+        const nomsMap: Record<string, string[]> = {};
+        for (const med of MEDICATIONS_DATA) {
+          const snap = await getDocs(collection(db, 'medications_noms', med.id, 'noms'));
+          if (!snap.empty) {
+            const today = new Date().toISOString().split('T')[0];
+            nomsMap[med.id] = snap.docs
+              .map(d => d.data() as NomCommercialEntry)
+              .filter(n => !n.dateFin || n.dateFin >= today) // exclure expirés
+              .map(n => n.nom);
+          }
+        }
+        setFirestoreNoms(nomsMap);
+      } catch {}
+    };
+    loadAllNoms();
+  }, [refreshKey]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -269,15 +292,21 @@ const MedicationsPage: React.FC = () => {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', fontFamily: 'Sora, sans-serif' }}>{med.dci}</div>
-                  {med.nomCommercial.filter(Boolean).length > 0 ? (
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                      {med.nomCommercial.slice(0, 3).join(' · ')}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
-                      Aucun nom commercial
-                    </div>
-                  )}
+                  {(() => {
+                    const allNoms = [
+                      ...(firestoreNoms[med.id] || []),
+                      ...med.nomCommercial.filter(Boolean).filter(n => !(firestoreNoms[med.id] || []).some(f => f.toLowerCase() === n.toLowerCase())),
+                    ];
+                    return allNoms.length > 0 ? (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                        {allNoms.slice(0, 3).join(' · ')}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
+                        Aucun nom commercial
+                      </div>
+                    );
+                  })()}
                 </div>
               </button>
             ))}

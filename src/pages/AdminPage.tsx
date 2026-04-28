@@ -354,6 +354,29 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
     setShowConfirm(eventId);
   };
 
+  const exportParticipantsPDF = async (eventId: string) => {
+    const eventTitle = events.find(e => e.id === eventId)?.title || 'Évènement';
+    const list = confirmations[eventId] || [];
+    const logo = await getLogoBase64();
+    const pdf = new jsPDF();
+    const startY = addPDFHeader(pdf, `Participants — ${eventTitle}`, logo, 'Groupe Assistant Rhumato');
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    pdf.text(`${list.length} participant${list.length > 1 ? 's' : ''} confirmé${list.length > 1 ? 's' : ''}`, 14, startY - 4);
+    pdf.setTextColor(0, 0, 0);
+    autoTable(pdf, {
+      startY,
+      head: [['Nom', 'Email']],
+      body: list.map((c: any) => [c.userName || '', c.userEmail || '']),
+      headStyles: { fillColor: [26, 107, 181], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 247, 255] },
+      styles: { fontSize: 9 },
+      didDrawPage: () => addPDFFooter(pdf),
+    });
+    addPDFFooter(pdf);
+    pdf.save(`participants_${eventTitle.replace(/\s+/g, '_')}.pdf`);
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet évènement ?')) return;
     await deleteDoc(doc(db, 'events', id));
@@ -427,7 +450,15 @@ const EventsAdmin: React.FC<{ events: MedicalEvent[]; onRefresh: () => void }> =
           <div className="modal" style={{ maxWidth: 500, padding: '1.5rem' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: 0, color: 'var(--text)' }}>Participants confirmés</h3>
-              <button onClick={() => setShowConfirm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(confirmations[showConfirm] || []).length > 0 && (
+                  <button onClick={() => exportParticipantsPDF(showConfirm)} className="btn-ghost" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                    Exporter PDF
+                  </button>
+                )}
+                <button onClick={() => setShowConfirm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+              </div>
             </div>
             {(confirmations[showConfirm] || []).length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Aucune confirmation pour cet évènement.</div>
@@ -724,7 +755,7 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
 
 const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({ ads, labs, onRefresh }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ laboId: '', laboName: '', title: '', description: '', status: 'active' as Ad['status'], startsAt: '', expiresAt: '', imageUrl: '', lienUrl: '' });
+  const [form, setForm] = useState({ laboId: '', laboName: '', title: '', description: '', status: 'active' as Ad['status'], startsAt: '', expiresAt: '', imageUrl: '', lienUrl: '', zones: [] as string[] });
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -785,6 +816,37 @@ const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({
               <img src={form.imageUrl} alt="Aperçu" style={{ maxHeight: 100, borderRadius: 6, border: '1px solid var(--border)' }}
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
             )}
+            {/* Zones d'affichage */}
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Zones d'affichage
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                {[
+                  { id: 'home', label: 'Tableau de bord' },
+                  { id: 'medicaments', label: 'Médicaments' },
+                  { id: 'cas', label: 'Cas cliniques' },
+                  { id: 'evenements', label: 'Évènements' },
+                  { id: 'cats', label: 'CAT Rhumato (liste)' },
+                  { id: 'cat_detail', label: 'Fiche CAT détail' },
+                ].map(z => (
+                  <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)', padding: '0.35rem 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.zones.includes(z.id)}
+                      onChange={e => setForm({
+                        ...form,
+                        zones: e.target.checked
+                          ? [...form.zones, z.id]
+                          : form.zones.filter(z2 => z2 !== z.id)
+                      })}
+                      style={{ width: 15, height: 15, accentColor: 'var(--primary)' }}
+                    />
+                    {z.label}
+                  </label>
+                ))}
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button onClick={handleSave} className="btn-primary"><Check size={14} /> Publier</button>
               <button onClick={() => setShowForm(false)} className="btn-ghost"><X size={14} /> Annuler</button>

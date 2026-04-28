@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, orderBy, query, addDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, addDoc, where } from 'firebase/firestore';
 import { sendConfirmationEmail } from '../services/emailService';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Calendar, Clock, MapPin, User, Check } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Check, FileText, ExternalLink } from 'lucide-react';
 import type { MedicalEvent } from '../types';
 
 const EVENT_TYPES: Record<string, { label: string; color: string; bg: string }> = {
@@ -20,20 +20,29 @@ const EventsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchData = async () => {
       try {
+        // Charger les évènements
         const q = query(collection(db, 'events'), orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
         setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() } as MedicalEvent)));
+
+        // Charger les confirmations déjà faites par cet utilisateur
+        if (currentUser) {
+          const confSnap = await getDocs(
+            query(collection(db, 'confirmations'), where('userId', '==', currentUser.uid))
+          );
+          const confirmedIds = new Set(confSnap.docs.map(d => (d.data() as any).invitationId as string));
+          setParticipating(confirmedIds);
+        }
       } catch (e) {
-        // Show demo events if Firebase not set up
         setEvents(DEMO_EVENTS);
       } finally {
         setLoading(false);
       }
     };
-    fetchEvents();
-  }, []);
+    fetchData();
+  }, [currentUser]);
 
   const handleParticipate = async (eventId: string) => {
     if (participating.has(eventId)) return;
@@ -46,7 +55,6 @@ const EventsPage: React.FC = () => {
         response: 'confirmed',
         respondedAt: new Date().toISOString(),
       });
-      // Email de confirmation
       const event = events.find(e => e.id === eventId);
       if (event && currentUser!.email) {
         await sendConfirmationEmail({
@@ -55,7 +63,7 @@ const EventsPage: React.FC = () => {
           eventTitle: event.title,
           eventDate: event.date,
           eventCity: event.city,
-        }).catch(() => {}); // email non bloquant
+        }).catch(() => {});
       }
       setParticipating(prev => new Set([...prev, eventId]));
     } catch (e) {
@@ -82,7 +90,7 @@ const EventsPage: React.FC = () => {
         </div>
       ) : events.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{marginBottom:"1rem"}}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <div style={{ fontWeight: 500 }}>Aucun évènement programmé</div>
         </div>
       ) : (
@@ -115,13 +123,30 @@ const EventsPage: React.FC = () => {
                       {event.description}
                     </p>
                   )}
+
+                  {/* Liens PDF / vidéo */}
+                  {((event as any).pdfUrl || (event as any).lienUrl) && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
+                      {(event as any).pdfUrl && (
+                        <a href={(event as any).pdfUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}>
+                          <FileText size={13} /> Programme PDF
+                        </a>
+                      )}
+                      {(event as any).lienUrl && (
+                        <a href={(event as any).lienUrl} target="_blank" rel="noopener noreferrer" className="btn-ghost" style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}>
+                          <ExternalLink size={13} /> Lien / Vidéo
+                        </a>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     onClick={() => handleParticipate(event.id)}
                     disabled={joined}
                     className={joined ? 'btn-secondary' : 'btn-primary'}
-                    style={{ width: '100%', justifyContent: 'center' }}
+                    style={{ width: '100%', justifyContent: 'center', opacity: joined ? 0.7 : 1, cursor: joined ? 'not-allowed' : 'pointer' }}
                   >
-{joined ? <><Check size={15} /> Participation confirmée</> : 'Participer'}
+                    {joined ? <><Check size={15} /> Participation confirmée</> : 'Participer'}
                   </button>
                 </div>
               </div>
@@ -140,7 +165,6 @@ const EventInfo: React.FC<{ icon: React.ReactNode; text: string }> = ({ icon, te
   </div>
 );
 
-// Demo events when Firebase not configured
 const DEMO_EVENTS: MedicalEvent[] = [
   {
     id: '1',
@@ -162,17 +186,6 @@ const DEMO_EVENTS: MedicalEvent[] = [
     organizer: 'Association des Médecins Généralistes du BF',
     type: 'webinaire',
     description: 'Cas pratiques et recommandations actualisées pour la gestion de l\'hyperuricémie et des crises de goutte.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    title: 'Formation : Infiltrations articulaires pour le généraliste',
-    date: '2025-07-10',
-    heure: '09h00 – 13h00',
-    city: 'Bobo Dioulasso',
-    organizer: 'CHU Sanou Souro',
-    type: 'formation',
-    description: 'Atelier pratique avec simulation sur les infiltrations des principales articulations (genou, épaule).',
     createdAt: new Date().toISOString(),
   },
 ];

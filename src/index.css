@@ -137,11 +137,11 @@ textarea.input { resize: vertical; min-height: 100px; }
 
 .modal-overlay {
   position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);
-  z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;animation:fadeIn 0.2s ease;
+  z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;animation:fadeIn 0.2s ease;
 }
 .modal {
   background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
-  width:100%;max-width:560px;max-height:90vh;overflow-y:auto;animation:fadeIn 0.25s ease;
+  width:100%;max-width:560px;overflow-y:auto;animation:fadeIn 0.25s ease;margin:auto;
 }
 
 .table-wrapper { overflow-x:auto; }

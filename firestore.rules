@@ -25,13 +25,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Cases: approved cases visible to all, pending only to admin/author
+    // Cases: all logged users can read approved cases; authors/admin see all
     match /cases/{caseId} {
-      allow read: if isLoggedIn() && (
-        resource.data.status == 'approved' ||
-        resource.data.authorId == request.auth.uid ||
-        isAdmin()
-      );
+      allow read: if isLoggedIn();
       allow create: if isLoggedIn();
       allow update: if isAdmin() || (
         request.auth.uid == resource.data.authorId &&

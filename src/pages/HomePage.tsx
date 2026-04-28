@@ -88,9 +88,36 @@ const HomePage: React.FC = () => {
         const snap = await getDocs(query(collection(db, 'ads'), where('status', '==', 'active')));
         const activeAds = snap.docs
           .map(d => ({ id: d.id, ...d.data() } as Ad))
-          .filter(a => !a.expiresAt || a.expiresAt >= today);
-        setAds(activeAds);
-        if (activeAds.length > 0) {
+          .filter(a => {
+            if (a.expiresAt && a.expiresAt < today) return false;
+            // Filtrer par zone: si zones définies, doit inclure 'home'
+            const zones = (a as any).zones as string[] | undefined;
+            if (zones && zones.length > 0 && !zones.includes('home')) return false;
+            return true;
+          });
+
+        // Gestion fréquence : max 3 affichages/jour, intervalle min 2h par pub, 10min entre pubs
+        const now = Date.now();
+        const storageKey = 'ar_ads_log';
+        let log: {id: string; ts: number}[] = [];
+        try { log = JSON.parse(localStorage.getItem(storageKey) || '[]'); } catch {}
+        // Nettoyer les logs de plus de 24h
+        log = log.filter(l => now - l.ts < 24 * 60 * 60 * 1000);
+
+        // Dernière pub affichée (toutes confondues)
+        const lastAnyTs = log.length > 0 ? Math.max(...log.map(l => l.ts)) : 0;
+        const minBetweenDiff = 10 * 60 * 1000; // 10 min entre pubs différentes
+
+        // Filtrer les pubs éligibles
+        const eligible = activeAds.filter(a => {
+          const adLog = log.filter(l => l.id === a.id);
+          if (adLog.length >= 3) return false; // max 3x/jour
+          if (adLog.length > 0 && now - Math.max(...adLog.map(l => l.ts)) < 2 * 60 * 60 * 1000) return false; // 2h entre occurrences
+          return true;
+        });
+
+        if (eligible.length > 0 && (now - lastAnyTs >= minBetweenDiff || lastAnyTs === 0)) {
+          setAds(eligible);
           setTimeout(() => setShowAd(true), 1500);
         }
       } catch {}
@@ -99,11 +126,21 @@ const HomePage: React.FC = () => {
   }, []);
 
   const handleAdClose = useCallback(() => {
+    // Log this ad display
+    const ad = ads[adIndex];
+    if (ad) {
+      try {
+        const storageKey = 'ar_ads_log';
+        const log = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        log.push({ id: ad.id, ts: Date.now() });
+        localStorage.setItem(storageKey, JSON.stringify(log));
+      } catch {}
+    }
     setShowAd(false);
     if (adIndex < ads.length - 1) {
-      setTimeout(() => { setAdIndex(i => i + 1); setShowAd(true); }, 1000);
+      setTimeout(() => { setAdIndex(i => i + 1); setShowAd(true); }, 10 * 60 * 1000); // 10min entre pubs
     }
-  }, [adIndex, ads.length]);
+  }, [adIndex, ads.length, ads]);
 
   return (
     <div className="animate-fade">

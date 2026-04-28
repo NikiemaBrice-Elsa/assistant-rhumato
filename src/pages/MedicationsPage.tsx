@@ -3,7 +3,7 @@ import { Search, X, Check, AlertCircle, Plus, Calendar } from 'lucide-react';
 import { MEDICATIONS_DATA, MEDICATION_CLASSES } from '../data/medications';
 import type { Medication, NomCommercialEntry } from '../types';
 import { db } from '../services/firebase';
-import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
 // ─── Modal détail médicament ──────────────────────────────────────
@@ -14,7 +14,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
   const [newDateDebut, setNewDateDebut] = useState('');
   const [newDateFin, setNewDateFin] = useState('');
   const [saving, setSaving] = useState(false);
-  const [localNames, setLocalNames] = useState<NomCommercialEntry[]>([]);
+  const [localNames, setLocalNames] = useState<(NomCommercialEntry & { id?: string })[]>([]);
   const [loadingNames, setLoadingNames] = useState(true);
 
   // Charger les noms depuis Firestore + noms de base
@@ -23,7 +23,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
       setLoadingNames(true);
       try {
         const snap = await getDocs(collection(db, 'medications_noms', med.id, 'noms'));
-        const firestoreNames: NomCommercialEntry[] = snap.docs.map(d => d.data() as NomCommercialEntry);
+        const firestoreNames: (NomCommercialEntry & { id: string })[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as NomCommercialEntry & { id: string }));
         // Fusionner noms de base (sans doublons) avec noms Firestore
         const baseNames = med.nomCommercial.filter(Boolean).map(n => ({ nom: n }));
         const allNoms = [
@@ -52,6 +52,17 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
       onUpdate();
     } catch (e) { console.error(e); }
     finally { setSaving(false); }
+  };
+
+  const handleDeleteNom = async (nom: NomCommercialEntry & { id?: string }, index: number) => {
+    if (!confirm(`Supprimer "${nom.nom}" ?`)) return;
+    try {
+      if (nom.id) {
+        await deleteDoc(doc(db, 'medications_noms', med.id, 'noms', nom.id));
+      }
+      setLocalNames(prev => prev.filter((_, i) => i !== index));
+      onUpdate();
+    } catch (e) { console.error(e); }
   };
 
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -144,6 +155,11 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
                       )}
                     </div>
                     {expired && <span className="badge badge-red" style={{ fontSize: '0.65rem' }}>Expiré</span>}
+                    {isAdmin && (
+                      <button onClick={() => handleDeleteNom(n, i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 2, flexShrink: 0 }} title="Supprimer ce nom">
+                        <X size={13} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -186,20 +202,23 @@ const MedicationsPage: React.FC = () => {
   const [firestoreNoms, setFirestoreNoms] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
-    // Charger les noms commerciaux de Firestore pour tous les médicaments
+    // Chargement PARALLÈLE — toutes les sous-collections en même temps
     const loadAllNoms = async () => {
       try {
+        const today = new Date().toISOString().split('T')[0];
+        const results = await Promise.all(
+          MEDICATIONS_DATA.map(async (med) => {
+            const snap = await getDocs(collection(db, 'medications_noms', med.id, 'noms'));
+            const noms = snap.docs
+              .map(d => ({ id: d.id, ...d.data() } as NomCommercialEntry & { id: string }))
+              .filter(n => !n.dateFin || n.dateFin >= today);
+            return { medId: med.id, noms };
+          })
+        );
         const nomsMap: Record<string, string[]> = {};
-        for (const med of MEDICATIONS_DATA) {
-          const snap = await getDocs(collection(db, 'medications_noms', med.id, 'noms'));
-          if (!snap.empty) {
-            const today = new Date().toISOString().split('T')[0];
-            nomsMap[med.id] = snap.docs
-              .map(d => d.data() as NomCommercialEntry)
-              .filter(n => !n.dateFin || n.dateFin >= today) // exclure expirés
-              .map(n => n.nom);
-          }
-        }
+        results.forEach(({ medId, noms }) => {
+          if (noms.length > 0) nomsMap[medId] = noms.map(n => n.nom);
+        });
         setFirestoreNoms(nomsMap);
       } catch {}
     };

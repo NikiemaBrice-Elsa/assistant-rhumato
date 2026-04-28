@@ -82,13 +82,14 @@ const addPDFFooter = (pdf: any): void => {
   pdf.setTextColor(0, 0, 0);
 };
 
-type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications' | 'stats';
+type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications' | 'stats' | 'revenues';
 
 const AdminPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<AdminTab>('users');
   const [catStats, setCatStats] = useState<{catId:string;title:string;visits:number}[]>([]);
+  const [revenues, setRevenues] = useState<any[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [events, setEvents] = useState<MedicalEvent[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -126,6 +127,9 @@ const AdminPage: React.FC = () => {
         const list = snap.docs.map(d => ({ catId: d.id, ...d.data() } as {catId:string;title:string;visits:number}));
         list.sort((a, b) => (b.visits || 0) - (a.visits || 0));
         setCatStats(list);
+      } else if (tab === 'revenues') {
+        const snap = await getDocs(query(collection(db, 'ads'), orderBy('createdAt', 'desc')));
+        setRevenues(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -169,6 +173,7 @@ const AdminPage: React.FC = () => {
     { key: 'ads', icon: <Megaphone size={16} />, label: 'Publications' },
     { key: 'medications', icon: <Pill size={16} />, label: 'Médicaments' },
     { key: 'stats', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, label: 'Stats CAT' },
+    { key: 'revenues', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, label: 'Revenus' },
   ];
 
   const CITIES = ['Tous', 'Ouagadougou', 'Bobo Dioulasso', 'Koudougou', 'Kaya', 'Koupéla', 'Autre'];
@@ -398,6 +403,9 @@ const AdminPage: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
+          {tab === 'revenues' && (
+            <RevenuesAdmin ads={revenues} onRefresh={loadData} />
           )}
         </>
       )}
@@ -830,14 +838,66 @@ const LabsAdmin: React.FC<{ labs: Lab[]; onRefresh: () => void }> = ({ labs, onR
   );
 };
 
+const ADS_FORMATS = [
+  { id: 'banniere', label: "Bannière (bas d'écran 5s)", desc: 'Visible à chaque connexion' },
+  { id: 'interstitiel', label: 'Interstitiel (plein écran)', desc: '1x/jour au lancement' },
+  { id: 'card', label: 'Card sponsorisée', desc: 'Intégrée dans le contenu' },
+  { id: 'push', label: 'Notification Push', desc: 'Directement sur le téléphone' },
+];
+
+const ADS_TARIFS: Record<string, Record<string, number>> = {
+  banniere:     { semaine: 20000, quinzaine: 35000, mois: 60000, trimestre: 150000 },
+  interstitiel: { semaine: 40000, quinzaine: 70000, mois: 120000, trimestre: 300000 },
+  card:         { semaine: 25000, quinzaine: 45000, mois: 80000, trimestre: 200000 },
+  push:         { envoi: 15000 },
+};
+
+const ZONES = [
+  { id: 'home', label: 'Tableau de bord', supplement: 0 },
+  { id: 'medicaments', label: 'Médicaments', supplement: 20 },
+  { id: 'cas', label: 'Cas cliniques', supplement: 15 },
+  { id: 'evenements', label: 'Évènements', supplement: 10 },
+  { id: 'cats', label: 'CAT Rhumato (liste)', supplement: 0 },
+  { id: 'cat_detail', label: 'Fiche CAT détail', supplement: 30 },
+];
+
+const calcPrice = (format: string, duree: string, zones: string[], remisePct: number) => {
+  const base = (ADS_TARIFS[format] || {})[duree] || 0;
+  const maxSupplement = Math.max(...zones.map(z => ZONES.find(zz => zz.id === z)?.supplement || 0), 0);
+  const withZone = base * (1 + maxSupplement / 100);
+  return Math.round(withZone * (1 - remisePct / 100));
+};
+
 const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({ ads, labs, onRefresh }) => {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ laboId: '', laboName: '', title: '', description: '', status: 'active' as Ad['status'], startsAt: '', expiresAt: '', imageUrl: '', lienUrl: '', zones: [] as string[] });
+  const [form, setForm] = useState({
+    laboId: '', laboName: '', title: '', description: '',
+    format: 'banniere', duree: 'semaine',
+    status: 'active' as Ad['status'], startsAt: '', expiresAt: '',
+    imageUrl: '', lienUrl: '', zones: [] as string[],
+    montant: 0, paiementStatut: 'en_attente' as 'en_attente' | 'recu',
+    remise: 0, notes: '',
+  });
+  // Calcul automatique du prix
+  const prixCalcule = calcPrice(form.format, form.duree, form.zones, form.remise);
 
   const handleSave = async () => {
-    if (!form.title) return;
-    await addDoc(collection(db, 'ads'), { ...form, createdAt: new Date().toISOString() });
+    if (!form.title || !form.laboId) return;
+    const data = {
+      ...form, montant: form.montant || prixCalcule,
+      createdAt: new Date().toISOString(),
+      impressions: 0,
+    };
+    await addDoc(collection(db, 'ads'), data);
+    // Trigger push notification si format push
+    if (form.format === 'push') {
+      await addDoc(collection(db, 'push_queue'), {
+        title: form.title, body: form.description || form.title,
+        url: '/', tag: 'ad-push', createdAt: new Date(), sent: false,
+      });
+    }
     setShowForm(false);
+    setForm({ laboId: '', laboName: '', title: '', description: '', format: 'banniere', duree: 'semaine', status: 'active', startsAt: '', expiresAt: '', imageUrl: '', lienUrl: '', zones: [], montant: 0, paiementStatut: 'en_attente', remise: 0, notes: '' });
     onRefresh();
   };
 
@@ -847,14 +907,55 @@ const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({
     onRefresh();
   };
 
-  const statusBadge = (s: Ad['status']) => {
-    if (s === 'active') return <span className="badge badge-green">En cours</span>;
-    if (s === 'planned') return <span className="badge badge-yellow">Planifié</span>;
-    return <span className="badge badge-gray">Expiré</span>;
+  const handleTogglePaiement = async (ad: Ad) => {
+    const newStatut = (ad as any).paiementStatut === 'recu' ? 'en_attente' : 'recu';
+    await updateDoc(doc(db, 'ads', ad.id), { paiementStatut: newStatut });
+    onRefresh();
   };
+
+  const generateFacturePDF = async (ad: any) => {
+    const logo = await getLogoBase64();
+    const pdf = new jsPDF();
+    addPDFHeader(pdf, 'FACTURE PUBLICITAIRE', logo, 'Groupe Assistant Rhumato');
+    const y = 60;
+    pdf.setFontSize(10); pdf.setTextColor(0);
+    pdf.text(`Laboratoire : ${ad.laboName}`, 14, y);
+    pdf.text(`Publication : ${ad.title}`, 14, y + 8);
+    pdf.text(`Format : ${ADS_FORMATS.find(f => f.id === ad.format)?.label || ad.format}`, 14, y + 16);
+    pdf.text(`Durée : ${ad.duree || '—'}`, 14, y + 24);
+    pdf.text(`Zones : ${(ad.zones || []).join(', ') || '—'}`, 14, y + 32);
+    pdf.text(`Période : ${ad.startsAt || '—'} → ${ad.expiresAt || '—'}`, 14, y + 40);
+    pdf.setDrawColor(200); pdf.line(14, y + 50, 196, y + 50);
+    pdf.setFontSize(13); pdf.setFont('helvetica', 'bold');
+    pdf.text(`Montant : ${(ad.montant || 0).toLocaleString('fr-FR')} FCFA`, 14, y + 62);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9); pdf.setTextColor(100);
+    pdf.text(`Statut paiement : ${ad.paiementStatut === 'recu' ? 'Reçu ✓' : 'En attente'}`, 14, y + 72);
+    pdf.text(`Créé le : ${new Date(ad.createdAt).toLocaleDateString('fr-FR')}`, 14, y + 80);
+    pdf.text('Paiement par virement bancaire ou Mobile Money (Orange/Moov)', 14, y + 96);
+    addPDFFooter(pdf);
+    pdf.save(`facture_${ad.laboName}_${ad.title}.pdf`);
+  };
+
+  const totalRevenue = ads.filter((a: any) => a.paiementStatut === 'recu').reduce((s: number, a: any) => s + (a.montant || 0), 0);
+  const pending = ads.filter((a: any) => a.paiementStatut !== 'recu').reduce((s: number, a: any) => s + (a.montant || 0), 0);
 
   return (
     <div className="animate-fade">
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+        {[
+          { label: 'Revenus perçus', value: `${totalRevenue.toLocaleString('fr-FR')} FCFA`, color: '#15803d', bg: '#dcfce7' },
+          { label: 'En attente', value: `${pending.toLocaleString('fr-FR')} FCFA`, color: '#b45309', bg: '#fef3c7' },
+          { label: 'Pubs actives', value: ads.filter((a: any) => a.status === 'active').length, color: 'var(--primary)', bg: 'var(--primary-light)' },
+        ].map(k => (
+          <div key={k.label} style={{ background: k.bg, borderRadius: 10, padding: '0.75rem', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '1.1rem', color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: '0.7rem', color: k.color, opacity: 0.8, marginTop: 2 }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
       <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ marginBottom: '1rem' }}>
         <Plus size={15} /> Nouvelle publication
       </button>
@@ -863,97 +964,141 @@ const AdsAdmin: React.FC<{ ads: Ad[]; labs: Lab[]; onRefresh: () => void }> = ({
         <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
           <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: '0 0 1rem', color: 'var(--text)' }}>Publication commerciale</h3>
           <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <select className="input" value={form.laboId} onChange={e => {
-              const lab = labs.find(l => l.id === e.target.value);
-              setForm({ ...form, laboId: e.target.value, laboName: lab?.nom || '' });
-            }}>
-              <option value="">Sélectionner un laboratoire</option>
+            <select className="input" value={form.laboId} onChange={e => { const lab = labs.find(l => l.id === e.target.value); setForm({ ...form, laboId: e.target.value, laboName: lab?.nom || '' }); }}>
+              <option value="">Sélectionner un laboratoire *</option>
               {labs.map(l => <option key={l.id} value={l.id}>{l.nom}</option>)}
             </select>
             <input className="input" placeholder="Titre *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
-            <textarea className="input" placeholder="Description" rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <select className="input" value={form.status} onChange={e => setForm({ ...form, status: e.target.value as Ad['status'] })}>
-              <option value="active">En cours</option>
-              <option value="planned">Planifié</option>
-              <option value="expired">Expiré</option>
-            </select>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Date début</label>
-                <input className="input" type="date" value={form.startsAt} onChange={e => setForm({ ...form, startsAt: e.target.value })} />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Date fin</label>
-                <input className="input" type="date" value={form.expiresAt} onChange={e => setForm({ ...form, expiresAt: e.target.value })} />
-              </div>
-            </div>
-            <input className="input" placeholder="URL image (affiche pub, lien externe)" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} />
-            <input className="input" placeholder="URL lien (site, PDF, vidéo)" value={form.lienUrl} onChange={e => setForm({ ...form, lienUrl: e.target.value })} />
-            {form.imageUrl && (
-              <img src={form.imageUrl} alt="Aperçu" style={{ maxHeight: 100, borderRadius: 6, border: '1px solid var(--border)' }}
-                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-            )}
-            {/* Zones d'affichage */}
+            <textarea className="input" placeholder="Description / message" rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+
+            {/* Format */}
             <div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Zones d'affichage
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                {[
-                  { id: 'home', label: 'Tableau de bord' },
-                  { id: 'medicaments', label: 'Médicaments' },
-                  { id: 'cas', label: 'Cas cliniques' },
-                  { id: 'evenements', label: 'Évènements' },
-                  { id: 'cats', label: 'CAT Rhumato (liste)' },
-                  { id: 'cat_detail', label: 'Fiche CAT détail' },
-                ].map(z => (
-                  <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)', padding: '0.35rem 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.zones.includes(z.id)}
-                      onChange={e => setForm({
-                        ...form,
-                        zones: e.target.checked
-                          ? [...form.zones, z.id]
-                          : form.zones.filter(z2 => z2 !== z.id)
-                      })}
-                      style={{ width: 15, height: 15, accentColor: 'var(--primary)' }}
-                    />
-                    {z.label}
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Format</div>
+              <div style={{ display: 'grid', gap: 6 }}>
+                {ADS_FORMATS.map(f => (
+                  <label key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '0.5rem 0.75rem', borderRadius: 8, background: form.format === f.id ? 'var(--primary-light)' : 'var(--surface2)', border: `1.5px solid ${form.format === f.id ? 'var(--primary)' : 'var(--border)'}` }}>
+                    <input type="radio" name="format" value={f.id} checked={form.format === f.id} onChange={() => setForm({ ...form, format: f.id })} style={{ accentColor: 'var(--primary)' }} />
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text)' }}>{f.label}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{f.desc}</div>
+                    </div>
+                    <div style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 600 }}>
+                      {Object.entries(ADS_TARIFS[f.id] || {}).map(([k, v]) => `${k}: ${v.toLocaleString('fr-FR')} FCFA`).join(' · ')}
+                    </div>
                   </label>
                 ))}
               </div>
             </div>
+
+            {/* Durée (pas pour push) */}
+            {form.format !== 'push' && (
+              <div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Durée</div>
+                <select className="input" value={form.duree} onChange={e => setForm({ ...form, duree: e.target.value })}>
+                  <option value="semaine">1 semaine</option>
+                  <option value="quinzaine">2 semaines</option>
+                  <option value="mois">1 mois</option>
+                  <option value="trimestre">3 mois</option>
+                </select>
+              </div>
+            )}
+
+            {/* Zones */}
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Zones d'affichage</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                {ZONES.map(z => (
+                  <label key={z.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)', padding: '0.35rem 0' }}>
+                    <input type="checkbox" checked={form.zones.includes(z.id)} onChange={e => setForm({ ...form, zones: e.target.checked ? [...form.zones, z.id] : form.zones.filter(z2 => z2 !== z.id) }) } style={{ width: 15, height: 15, accentColor: 'var(--primary)' }} />
+                    {z.label} {z.supplement > 0 && <span style={{ fontSize: '0.65rem', color: 'var(--primary)' }}>+{z.supplement}%</span>}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div><label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Date début</label><input className="input" type="date" value={form.startsAt} onChange={e => setForm({ ...form, startsAt: e.target.value })} /></div>
+              <div><label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4, display: 'block' }}>Date fin</label><input className="input" type="date" value={form.expiresAt} onChange={e => setForm({ ...form, expiresAt: e.target.value })} /></div>
+            </div>
+
+            <input className="input" placeholder="URL image ou affiche" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} />
+            <input className="input" placeholder="URL lien (site, PDF, vidéo)" value={form.lienUrl} onChange={e => setForm({ ...form, lienUrl: e.target.value })} />
+            {form.imageUrl && <img src={form.imageUrl} alt="Aperçu" style={{ maxHeight: 100, borderRadius: 6, border: '1px solid var(--border)' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+
+            {/* Tarification */}
+            <div style={{ background: 'var(--primary-light)', borderRadius: 8, padding: '0.75rem', border: '1px solid #bfdbfe' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary)', marginBottom: 6 }}>TARIFICATION CALCULÉE</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Prix de base</div>
+                  <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{prixCalcule.toLocaleString('fr-FR')} FCFA</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>Remise % (fidélité/négociation)</div>
+                  <input type="number" min={0} max={50} className="input" value={form.remise} onChange={e => setForm({ ...form, remise: Number(e.target.value) })} style={{ padding: '0.3rem 0.5rem' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Montant final</div>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#15803d' }}>{prixCalcule.toLocaleString('fr-FR')} FCFA</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3 }}>Ou saisir un montant personnalisé</div>
+                <input type="number" className="input" placeholder="Montant personnalisé (FCFA)" value={form.montant || ''} onChange={e => setForm({ ...form, montant: Number(e.target.value) })} style={{ padding: '0.3rem 0.5rem' }} />
+              </div>
+            </div>
+
+            <select className="input" value={form.paiementStatut} onChange={e => setForm({ ...form, paiementStatut: e.target.value as any })}>
+              <option value="en_attente">Paiement en attente</option>
+              <option value="recu">Paiement reçu</option>
+            </select>
+            <textarea className="input" placeholder="Notes internes" rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={handleSave} className="btn-primary"><Check size={14} /> Publier</button>
+              <button onClick={handleSave} disabled={!form.title || !form.laboId} className="btn-primary"><Check size={14} /> Publier</button>
               <button onClick={() => setShowForm(false)} className="btn-ghost"><X size={14} /> Annuler</button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="card table-wrapper">
-        <table>
-          <thead><tr><th>Titre</th><th>Laboratoire</th><th>Statut</th><th>Expire</th><th>Actions</th></tr></thead>
-          <tbody>
-            {ads.map(a => (
-              <tr key={a.id}>
-                <td style={{ fontWeight: 500 }}>{a.title}</td>
-                <td style={{ fontSize: '0.85rem' }}>{a.laboName}</td>
-                <td>{statusBadge(a.status)}</td>
-                <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  {a.expiresAt ? new Date(a.expiresAt).toLocaleDateString('fr-FR') : '—'}
-                </td>
-                <td>
-                  <button onClick={() => handleDelete(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
-                    <Trash2 size={15} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {ads.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucune publication commerciale</div>}
+      {/* Liste des pubs */}
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        {ads.map((ad: any) => (
+          <div key={ad.id} className="card" style={{ padding: '1rem', borderLeft: `4px solid ${ad.status === 'active' ? '#15803d' : ad.status === 'planned' ? '#b45309' : '#9ca3af'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text)', marginBottom: 2 }}>{ad.title}</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                  {ad.laboName} · {ADS_FORMATS.find(f => f.id === ad.format)?.label || ad.format}
+                  {ad.startsAt && ` · ${ad.startsAt} → ${ad.expiresAt || '?'}`}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {ad.status === 'active' && <span className="badge badge-green">En cours</span>}
+                  {ad.status === 'planned' && <span className="badge badge-yellow">Planifié</span>}
+                  {ad.status === 'expired' && <span className="badge badge-gray">Expiré</span>}
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: ad.paiementStatut === 'recu' ? '#15803d' : '#b45309' }}>
+                    {(ad.montant || 0).toLocaleString('fr-FR')} FCFA — {ad.paiementStatut === 'recu' ? '✓ Payé' : '⏳ En attente'}
+                  </span>
+                  {(ad.impressions || 0) > 0 && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{ad.impressions} affichages</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => handleTogglePaiement(ad)} className="btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }} title="Marquer paiement">
+                  {ad.paiementStatut === 'recu' ? '↩ En attente' : '✓ Reçu'}
+                </button>
+                <button onClick={() => generateFacturePDF(ad)} className="btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.72rem' }} title="Facture PDF">
+                  PDF
+                </button>
+                <button onClick={() => handleDelete(ad.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {ads.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucune publication</div>}
       </div>
     </div>
   );
@@ -1043,6 +1188,100 @@ const AdminMedications: React.FC = () => {
             Les médicaments ajoutés ici seront prioritaires sur ceux intégrés.
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ─── Onglet Revenus ───────────────────────────────────────────────
+const RevenuesAdmin: React.FC<{ ads: any[]; onRefresh: () => void }> = ({ ads }) => {
+  const months: Record<string, number> = {};
+  ads.forEach(a => {
+    if (a.paiementStatut === 'recu' && a.montant) {
+      const m = (a.createdAt || '').slice(0, 7);
+      months[m] = (months[m] || 0) + a.montant;
+    }
+  });
+  const totalRecu = ads.filter(a => a.paiementStatut === 'recu').reduce((s, a) => s + (a.montant || 0), 0);
+  const totalAttendu = ads.reduce((s, a) => s + (a.montant || 0), 0);
+  const monthsList = Object.entries(months).sort((a, b) => b[0].localeCompare(a[0]));
+
+  const exportRevenuePDF = async () => {
+    const logo = await getLogoBase64();
+    const pdf = new jsPDF();
+    const startY = addPDFHeader(pdf, 'Rapport de revenus publicitaires', logo, 'Groupe Assistant Rhumato');
+    pdf.setFontSize(9); pdf.setTextColor(100);
+    pdf.text(`Total perçu : ${totalRecu.toLocaleString('fr-FR')} FCFA  |  Total attendu : ${totalAttendu.toLocaleString('fr-FR')} FCFA`, 14, startY - 4);
+    pdf.setTextColor(0);
+    autoTable(pdf, {
+      startY,
+      head: [['Laboratoire', 'Publication', 'Format', 'Montant (FCFA)', 'Statut', 'Date']],
+      body: ads.map(a => [
+        a.laboName || '',
+        a.title || '',
+        a.format || '',
+        (a.montant || 0).toLocaleString('fr-FR'),
+        a.paiementStatut === 'recu' ? 'Reçu ✓' : 'En attente',
+        (a.createdAt || '').slice(0, 10),
+      ]),
+      headStyles: { fillColor: [26, 107, 181], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 247, 255] },
+      styles: { fontSize: 8 },
+      didDrawPage: () => addPDFFooter(pdf),
+    });
+    addPDFFooter(pdf);
+    pdf.save('revenus_assistant_rhumato.pdf');
+  };
+
+  return (
+    <div className="animate-fade">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', margin: 0, color: 'var(--text)' }}>Revenus publicitaires</h3>
+        <button onClick={exportRevenuePDF} className="btn-ghost" style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+          Exporter PDF
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <div style={{ background: '#dcfce7', borderRadius: 10, padding: '1rem', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 800, color: '#15803d' }}>{totalRecu.toLocaleString('fr-FR')}</div>
+          <div style={{ fontSize: '0.75rem', color: '#15803d' }}>FCFA perçus</div>
+        </div>
+        <div style={{ background: '#fef3c7', borderRadius: 10, padding: '1rem', textAlign: 'center' }}>
+          <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 800, color: '#b45309' }}>{(totalAttendu - totalRecu).toLocaleString('fr-FR')}</div>
+          <div style={{ fontSize: '0.75rem', color: '#b45309' }}>FCFA en attente</div>
+        </div>
+      </div>
+
+      {monthsList.length > 0 && (
+        <div className="card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.75rem', color: 'var(--text)' }}>Revenus par mois</div>
+          {monthsList.map(([m, v]) => (
+            <div key={m} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.4rem 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{new Date(m + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</span>
+              <span style={{ fontWeight: 700, color: '#15803d', fontSize: '0.9rem' }}>{v.toLocaleString('fr-FR')} FCFA</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="card table-wrapper">
+        <table>
+          <thead><tr><th>Laboratoire</th><th>Publication</th><th>Montant</th><th>Statut</th><th>Date</th></tr></thead>
+          <tbody>
+            {ads.map(a => (
+              <tr key={a.id}>
+                <td style={{ fontWeight: 500 }}>{a.laboName}</td>
+                <td style={{ fontSize: '0.82rem' }}>{a.title}</td>
+                <td style={{ fontWeight: 700, color: '#15803d' }}>{(a.montant || 0).toLocaleString('fr-FR')} FCFA</td>
+                <td><span className={`badge ${a.paiementStatut === 'recu' ? 'badge-green' : 'badge-yellow'}`}>{a.paiementStatut === 'recu' ? 'Reçu' : 'En attente'}</span></td>
+                <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{(a.createdAt || '').slice(0, 10)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {ads.length === 0 && <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Aucun contrat publicitaire</div>}
       </div>
     </div>
   );

@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, addDoc, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Heart, MessageCircle, Image, Send, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, MessageCircle, Image, Send, X, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import type { ClinicalCase, CaseComment } from '../types';
 
 // ─── Section commentaires d'un cas ───────────────────────────────
-const CommentsSection: React.FC<{ caseId: string; commentsCount: number }> = ({ caseId, commentsCount }) => {
+const CommentsSection: React.FC<{ caseId: string; commentsCount: number; imageUrl?: string }> = ({ caseId, commentsCount, imageUrl }) => {
   const { currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [comments, setComments] = useState<CaseComment[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState<{id:string;name:string} | null>(null);
   const [sending, setSending] = useState(false);
 
   const loadComments = async () => {
@@ -23,11 +24,7 @@ const CommentsSection: React.FC<{ caseId: string; commentsCount: number }> = ({ 
     } catch (e) { console.error(e); }
   };
 
-  const handleToggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (next) loadComments();
-  };
+  const handleToggle = () => { const next = !open; setOpen(next); if (next) loadComments(); };
 
   const handleSend = async () => {
     if (!text.trim()) return;
@@ -38,40 +35,60 @@ const CommentsSection: React.FC<{ caseId: string; commentsCount: number }> = ({ 
         authorId: currentUser!.uid,
         authorName: currentUser!.displayName || 'Médecin',
         authorPhoto: currentUser!.photoURL || '',
-        text: text.trim(),
+        text: replyTo ? `@${replyTo.name} ${text.trim()}` : text.trim(),
+        replyToId: replyTo?.id,
         createdAt: new Date().toISOString(),
       };
       const ref = await addDoc(collection(db, 'cases', caseId, 'comments'), comment);
       await updateDoc(doc(db, 'cases', caseId), { commentsCount: increment(1) });
       setComments(prev => [...prev, { id: ref.id, ...comment }]);
-      setText('');
+      setText(''); setReplyTo(null);
     } catch (e) { console.error(e); }
     finally { setSending(false); }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!imageUrl) return;
+    // Si base64
+    if (imageUrl.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = imageUrl;
+      a.download = `cas_clinique_${caseId}.jpg`;
+      a.click();
+      return;
+    }
+    // Si URL distante
+    try {
+      const resp = await fetch(imageUrl);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `cas_clinique_${caseId}.jpg`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { window.open(imageUrl, '_blank'); }
   };
 
   const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 
   return (
     <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
-      {/* Toggle */}
-      <button onClick={handleToggle} style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        background: 'none', border: 'none', cursor: 'pointer',
-        color: open ? 'var(--primary)' : 'var(--text-muted)',
-        fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0,
-      }}>
-        <MessageCircle size={17} />
-        {commentsCount || 0} commentaire{(commentsCount || 0) > 1 ? 's' : ''}
-        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: open ? '0.75rem' : 0 }}>
+        <button onClick={handleToggle} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: open ? 'var(--primary)' : 'var(--text-muted)', fontSize: '0.85rem', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>
+          <MessageCircle size={17} />
+          {commentsCount} commentaire{commentsCount > 1 ? 's' : ''}
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {imageUrl && (
+          <button onClick={handleDownloadImage} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', padding: 0 }}>
+            <Download size={15} /> Télécharger image
+          </button>
+        )}
+      </div>
 
       {open && (
-        <div style={{ marginTop: '0.75rem' }}>
-          {/* Liste des commentaires */}
+        <div>
           {comments.length === 0 ? (
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '0.75rem' }}>
-              Aucun commentaire. Soyez le premier à répondre.
-            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '0.75rem' }}>Aucun commentaire. Soyez le premier à répondre.</div>
           ) : (
             <div style={{ display: 'grid', gap: '0.625rem', marginBottom: '0.75rem' }}>
               {comments.map(cm => (
@@ -89,30 +106,28 @@ const CommentsSection: React.FC<{ caseId: string; commentsCount: number }> = ({ 
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatDate(cm.createdAt)}</span>
                     </div>
                     <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text)', lineHeight: 1.5 }}>{cm.text}</p>
+                    <button onClick={() => { setReplyTo({ id: cm.id, name: cm.authorName }); setOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.72rem', padding: '4px 0 0', fontFamily: 'DM Sans, sans-serif' }}>
+                      Répondre
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Saisie nouveau commentaire */}
+          {replyTo && (
+            <div style={{ background: 'var(--primary-light)', borderRadius: 6, padding: '4px 10px', marginBottom: 6, fontSize: '0.78rem', color: 'var(--primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Réponse à <strong>{replyTo.name}</strong></span>
+              <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}><X size={12} /></button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
-            {currentUser?.photoURL ? (
-              <img src={currentUser.photoURL} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: 4 }} />
-            ) : (
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, marginTop: 4 }}>
-                {currentUser?.displayName?.charAt(0) || 'M'}
-              </div>
-            )}
+            {currentUser?.photoURL
+              ? <img src={currentUser.photoURL} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: 4 }} />
+              : <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, marginTop: 4 }}>{currentUser?.displayName?.charAt(0) || 'M'}</div>}
             <div style={{ flex: 1, display: 'flex', gap: 6 }}>
-              <input
-                className="input"
-                placeholder="Votre commentaire..."
-                value={text}
-                onChange={e => setText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                style={{ flex: 1, padding: '0.45rem 0.75rem', fontSize: '0.85rem' }}
-              />
+              <input className="input" placeholder={replyTo ? `Répondre à ${replyTo.name}...` : 'Votre commentaire...'} value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} style={{ flex: 1, padding: '0.45rem 0.75rem', fontSize: '0.85rem' }} />
               <button onClick={handleSend} disabled={!text.trim() || sending} className="btn-primary" style={{ padding: '0.45rem 0.75rem', minWidth: 0 }}>
                 {sending ? <div className="spinner" style={{ width: 12, height: 12 }} /> : <Send size={14} />}
               </button>
@@ -307,7 +322,7 @@ const CasesPage: React.FC = () => {
                 </div>
 
                 {/* Commentaires (tous peuvent lire et commenter) */}
-                <CommentsSection caseId={c.id} commentsCount={c.commentsCount || 0} />
+                <CommentsSection caseId={c.id} commentsCount={c.commentsCount || 0} imageUrl={c.imageUrl} />
               </div>
             );
           })}

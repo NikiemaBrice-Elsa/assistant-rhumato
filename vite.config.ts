@@ -28,8 +28,12 @@ export default defineConfig({
         ],
         categories: ['medical', 'health', 'education'],
       },
+      devOptions: { enabled: false },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -37,9 +41,24 @@ export default defineConfig({
             options: { cacheName: 'google-fonts-cache', expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 } },
           },
           {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: { cacheName: 'google-fonts-static', expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 } },
+          },
+          {
             urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
             handler: 'NetworkFirst',
-            options: { cacheName: 'firestore-cache' },
+            options: { cacheName: 'firestore-cache', expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 } },
+          },
+          {
+            urlPattern: /^https:\/\/www\.googleapis\.com\/.*/i,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'googleapis-cache', expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 12 } },
+          },
+          {
+            urlPattern: ({ request }: { request: Request }) => request.destination === 'image',
+            handler: 'CacheFirst',
+            options: { cacheName: 'images-cache', expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
         ],
       },

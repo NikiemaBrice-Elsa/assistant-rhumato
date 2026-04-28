@@ -332,9 +332,37 @@ const AdminPage: React.FC = () => {
           )}
           {tab === 'stats' && (
             <div className="animate-fade">
-              <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', marginBottom: '1rem', color: 'var(--text)' }}>
-                Consultations des fiches CAT
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', margin: 0, color: 'var(--text)' }}>
+                  Consultations des fiches CAT
+                </h3>
+                {catStats.length > 0 && (
+                  <button onClick={async () => {
+                    const logo = await getLogoBase64();
+                    const pdf = new jsPDF();
+                    const startY = addPDFHeader(pdf, 'Statistiques — CAT Rhumato', logo, 'Groupe Assistant Rhumato');
+                    const total = catStats.reduce((sum, s) => sum + (s.visits || 0), 0);
+                    pdf.setFontSize(9); pdf.setTextColor(100);
+                    pdf.text(`Total : ${total} visite${total > 1 ? 's' : ''} · ${catStats.length} fiche${catStats.length > 1 ? 's' : ''}`, 14, startY - 4);
+                    pdf.setTextColor(0, 0, 0);
+                    autoTable(pdf, {
+                      startY,
+                      head: [['#', 'Fiche CAT', 'Visites']],
+                      body: catStats.map((s, i) => [i + 1, s.title, s.visits]),
+                      headStyles: { fillColor: [26, 107, 181], textColor: 255, fontStyle: 'bold' },
+                      columnStyles: { 0: { cellWidth: 12 }, 2: { cellWidth: 20, halign: 'center' } },
+                      alternateRowStyles: { fillColor: [240, 247, 255] },
+                      styles: { fontSize: 9 },
+                      didDrawPage: () => addPDFFooter(pdf),
+                    });
+                    addPDFFooter(pdf);
+                    pdf.save('stats_CAT_rhumato.pdf');
+                  }} className="btn-ghost" style={{ padding: '0.35rem 0.875rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                    Exporter PDF
+                  </button>
+                )}
+              </div>
               {catStats.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                   Aucune statistique disponible — les visites seront comptabilisées dès qu'un utilisateur ouvrira une fiche.

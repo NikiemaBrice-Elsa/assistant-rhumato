@@ -76,6 +76,7 @@ export interface CaseComment {
   authorPhoto?: string;
   text: string;
   createdAt: string;
+  replyToId?: string;
 }
 
 export interface MedicalEvent {

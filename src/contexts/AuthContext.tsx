@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { type User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, googleProvider, ADMIN_EMAIL } from '../services/firebase';
+import { auth, db, googleProvider, appleProvider, ADMIN_EMAIL, MODERATOR_EMAILS } from '../services/firebase';
 import { sendWelcomeEmail } from '../services/emailService';
 import type { UserProfile, City } from '../types';
 
@@ -12,6 +12,8 @@ interface AuthContextType {
   loading: boolean;
   needsOnboarding: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
+  isModerator: boolean;
   logout: () => Promise<void>;
   completeOnboarding: (city: City) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -32,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
+  const isModerator = isAdmin || MODERATOR_EMAILS.includes(currentUser?.email || '');
 
   const fetchProfile = async (user: User) => {
     const ref = doc(db, 'users', user.uid);
@@ -57,6 +60,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     return unsub;
   }, []);
+
+  const signInWithApple = async () => {
+    const { signInWithPopup } = await import('firebase/auth');
+    const result = await signInWithPopup(auth, appleProvider);
+    const user = result.user;
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        uid: user.uid,
+        displayName: user.displayName || 'Médecin',
+        email: user.email || '',
+        photoURL: user.photoURL || '',
+        provider: 'apple',
+        createdAt: new Date().toISOString(),
+      });
+    }
+  };
 
   const signInWithGoogle = async () => {
     await signInWithPopup(auth, googleProvider);
@@ -98,8 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      currentUser, userProfile, isAdmin, loading,
-      needsOnboarding, signInWithGoogle, logout,
+      currentUser, userProfile, isAdmin, isModerator, loading,
+      needsOnboarding, signInWithGoogle, signInWithApple, logout,
       completeOnboarding, refreshProfile,
     }}>
       {children}

@@ -216,7 +216,7 @@ const CaseCard: React.FC<{
 
 // ─── Page principale ─────────────────────────────────────────────
 const CasesPage: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isModerator } = useAuth();
   const [cases, setCases] = useState<ClinicalCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -233,7 +233,7 @@ const CasesPage: React.FC = () => {
       const snap = await getDocs(q);
       const allCases = snap.docs.map(d => ({ id: d.id, ...d.data() } as ClinicalCase));
       const visible = allCases.filter(c =>
-        c.status === 'approved' || isAdmin || c.authorId === currentUser?.uid
+        c.status === 'approved' || isAdmin || isModerator || c.authorId === currentUser?.uid
       );
       setCases(visible);
     } catch (e) { console.error(e); }
@@ -268,7 +268,7 @@ const CasesPage: React.FC = () => {
         authorName: currentUser!.displayName || 'Médecin',
         authorPhoto: currentUser!.photoURL || '',
         text, imageUrl, question,
-        status: 'approved',
+        status: 'approved', // Tous les cas sont approuvés directement
         likes: [],
         createdAt: new Date().toISOString(),
         commentsCount: 0,
@@ -355,7 +355,7 @@ const CasesPage: React.FC = () => {
             return (
               <CaseCard key={c.id} c={c} liked={liked}
                 onLike={() => handleLike(c.id, liked)}
-                onDelete={isAdmin ? () => handleDelete(c.id) : undefined}
+                onDelete={(isAdmin || isModerator) ? () => handleDelete(c.id) : undefined}
                 formatDate={formatDate} />
             );
           })}

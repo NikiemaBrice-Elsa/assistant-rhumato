@@ -7,6 +7,7 @@ import {
   Shield, Menu, X, Sun, Moon, LogOut, Info, Star,
 } from 'lucide-react';
 import { db } from '../../services/firebase';
+import PWABanner, { usePWAInstall, isInstalled } from '../ui/PWABanner';
 import { collection, query, orderBy, limit, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 
 // ─── Hook notifications ───────────────────────────────────────────
@@ -137,7 +138,7 @@ const MainLayout: React.FC = () => {
   const { dark, toggleDark } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { badges, markSeen } = useNotifications(currentUser?.uid);
-  const { canInstall, platform, triggerInstall, deferredPrompt } = usePWAInstall();
+  const { canInstall, triggerInstall, deferredPrompt } = usePWAInstall();
   const [pwaInstalled, setPwaInstalled] = useState(isInstalled());
 
   const handleLogout = async () => {
@@ -265,6 +266,7 @@ const MainLayout: React.FC = () => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <OfflineBanner />
+      <PWABanner />
 
       {/* Desktop sidebar */}
       <aside style={{ width: 220, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 100, display: 'none' }} className="desktop-sidebar">

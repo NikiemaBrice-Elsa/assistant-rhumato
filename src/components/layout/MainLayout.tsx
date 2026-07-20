@@ -219,13 +219,22 @@ const MainLayout: React.FC = () => {
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{userProfile?.city || ''}</div>
           </div>
         </div>
-        {/* Bouton installation PWA */}
-        {!pwaInstalled && (canInstall || /iphone|ipad|ipod/i.test(navigator.userAgent)) && (
+        {/* Bouton installation PWA — toujours visible sauf si déjà installé */}
+        {!pwaInstalled && (
           <button
             onClick={async () => {
               if (deferredPrompt) {
                 const ok = await triggerInstall();
-                if (ok) setPwaInstalled(true);
+                if (ok) { setPwaInstalled(true); return; }
+              }
+              // Fallback : afficher instructions selon plateforme
+              const ua = navigator.userAgent.toLowerCase();
+              if (/iphone|ipad|ipod/.test(ua)) {
+                alert('Sur Safari iPhone :\n1. Appuyez sur le bouton Partager ⬆\n2. Faites défiler → "Sur l'écran d'accueil"\n3. Appuyez sur Ajouter');
+              } else if (/android/.test(ua)) {
+                alert('Sur Chrome Android :\n1. Appuyez sur le menu ⋮ (3 points)\n2. Appuyez sur "Ajouter à l'écran d'accueil"');
+              } else {
+                alert('Sur Chrome ordinateur :\n1. Cliquez sur l'icône ⊕ dans la barre d'adresse\nou\n2. Menu ⋮ → "Installer Assistant Rhumato"');
               }
             }}
             style={{
@@ -235,7 +244,6 @@ const MainLayout: React.FC = () => {
               border: 'none', borderRadius: 8, cursor: 'pointer',
               color: 'white', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
             }}
-            title="Installer l'application"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

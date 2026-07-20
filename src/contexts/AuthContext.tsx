@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { type User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
+import { type User, onAuthStateChanged, signInWithPopup, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, appleProvider, ADMIN_EMAIL, MODERATOR_EMAILS } from '../services/firebase';
 import { sendWelcomeEmail } from '../services/emailService';
@@ -62,6 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithApple = async () => {
+    await ensurePersistence();
     const { signInWithPopup } = await import('firebase/auth');
     const result = await signInWithPopup(auth, appleProvider);
     const user = result.user;
@@ -79,7 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Persistance locale : l'utilisateur reste connecté après fermeture du navigateur
+  const ensurePersistence = async () => {
+    try { await setPersistence(auth, browserLocalPersistence); } catch {}
+  };
+
   const signInWithGoogle = async () => {
+    await ensurePersistence();
     await signInWithPopup(auth, googleProvider);
   };
 

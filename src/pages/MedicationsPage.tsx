@@ -69,8 +69,8 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
   const isExpired = (dateFin?: string) => dateFin ? new Date(dateFin) < new Date() : false;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 600, padding: '1.5rem' }} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} style={{ alignItems: "flex-start", paddingTop: "1rem", overflowY: "auto" }}>
+      <div className="modal" style={{ maxWidth: 600, padding: '1.5rem', marginTop: 0 }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
           <div>
@@ -132,7 +132,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {localNames.map((n, i) => {
+              {localNames.filter(n => isAdmin || !isExpired(n.dateFin)).map((n, i) => {
                 const expired = isExpired(n.dateFin);
                 return (
                   <div key={i} style={{

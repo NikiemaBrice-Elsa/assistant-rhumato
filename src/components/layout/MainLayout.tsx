@@ -137,6 +137,8 @@ const MainLayout: React.FC = () => {
   const { dark, toggleDark } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { badges, markSeen } = useNotifications(currentUser?.uid);
+  const { canInstall, platform, triggerInstall, deferredPrompt } = usePWAInstall();
+  const [pwaInstalled, setPwaInstalled] = useState(isInstalled());
 
   const handleLogout = async () => {
     if (confirm('Se déconnecter ?')) await logout();
@@ -216,6 +218,38 @@ const MainLayout: React.FC = () => {
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{userProfile?.city || ''}</div>
           </div>
         </div>
+        {/* Bouton installation PWA */}
+        {!pwaInstalled && (canInstall || /iphone|ipad|ipod/i.test(navigator.userAgent)) && (
+          <button
+            onClick={async () => {
+              if (deferredPrompt) {
+                const ok = await triggerInstall();
+                if (ok) setPwaInstalled(true);
+              }
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+              padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
+              background: 'linear-gradient(135deg, #1a6bb5, #0d5299)',
+              border: 'none', borderRadius: 8, cursor: 'pointer',
+              color: 'white', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+            }}
+            title="Installer l'application"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Installer l'application
+          </button>
+        )}
+        {pwaInstalled && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.75rem', marginBottom: '0.5rem', background: '#dcfce7', borderRadius: 8, fontSize: '0.75rem', color: '#15803d' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Application installée
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={toggleDark} className="btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '0.5rem', gap: 0 }} title="Mode sombre">
             {dark ? <Sun size={15} /> : <Moon size={15} />}

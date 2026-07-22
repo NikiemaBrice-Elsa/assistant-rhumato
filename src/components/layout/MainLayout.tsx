@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -10,7 +10,7 @@ import { db } from '../../services/firebase';
 import PWABanner, { usePWAInstall, isInstalled } from '../ui/PWABanner';
 import { collection, query, orderBy, limit, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 
-// â”€â”€â”€ Hook notifications â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Hook notifications ───────────────────────────────────────────
 const useNotifications = (userId?: string) => {
   const [badges, setBadges] = useState<Record<string, number>>({});
   const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
@@ -18,7 +18,7 @@ const useNotifications = (userId?: string) => {
   useEffect(() => {
     if (!userId) return;
 
-    // Charger les derniÃ¨res visites depuis Firestore (persistance cross-device)
+    // Charger les dernières visites depuis Firestore (persistance cross-device)
     const loadAndCheck = async () => {
       try {
         let seen: Record<string, string> = {};
@@ -34,12 +34,12 @@ const useNotifications = (userId?: string) => {
         const lastCas = seen['cas'] || '';
         newBadges['cas'] = casSnap.docs.filter(d => (d.data().createdAt || '') > lastCas && d.data().status === 'approved').length;
 
-        // Ã‰vÃ¨nements
+        // Évènements
         const evSnap = await getDocs(query(collection(db, 'events'), orderBy('createdAt', 'desc'), limit(20)));
         const lastEv = seen['evenements'] || '';
         newBadges['evenements'] = evSnap.docs.filter(d => (d.data().createdAt || '') > lastEv).length;
 
-        // MÃ©dicaments custom (collection Firestore)
+        // Médicaments custom (collection Firestore)
         try {
           const medSnap = await getDocs(query(collection(db, 'medications'), orderBy('createdAt', 'desc'), limit(20)));
           const lastMed = seen['medicaments'] || '';
@@ -69,7 +69,7 @@ const useNotifications = (userId?: string) => {
   return { badges, markSeen };
 };
 
-// â”€â”€â”€ Badge component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Badge component ─────────────────────────────────────────────
 const NotifBadge: React.FC<{ count: number }> = ({ count }) => {
   if (!count) return null;
   return (
@@ -87,7 +87,7 @@ const NotifBadge: React.FC<{ count: number }> = ({ count }) => {
   );
 };
 
-// â”€â”€â”€ Offline banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Offline banner ──────────────────────────────────────────────
 const OfflineBanner: React.FC = () => {
   const [offline, setOffline] = useState(!navigator.onLine);
   const [justBack, setJustBack] = useState(false);
@@ -115,22 +115,22 @@ const OfflineBanner: React.FC = () => {
       transition: 'background 0.3s',
     }}>
       {justBack
-        ? 'âœ“ Connexion rÃ©tablie â€” donnÃ©es actualisÃ©es'
-        : 'âš  Hors connexion â€” contenu en cache disponible'}
+        ? '✓ Connexion rétablie — données actualisées'
+        : '⚠ Hors connexion — contenu en cache disponible'}
     </div>
   );
 };
 
-// â”€â”€â”€ Main Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main Layout ─────────────────────────────────────────────────
 const navItems = [
   { to: '/', label: 'Accueil', icon: Home, exact: true, key: 'home' },
   { to: '/cats', label: 'CAT Rhumato', icon: FileText, key: 'cats' },
-  { to: '/medicaments', label: 'MÃ©dicaments', icon: Pill, key: 'medicaments' },
+  { to: '/medicaments', label: 'Médicaments', icon: Pill, key: 'medicaments' },
   { to: '/cas-cliniques', label: 'Cas cliniques', icon: Share2, key: 'cas' },
-  { to: '/evenements', label: 'Ã‰vÃ¨nements', icon: Calendar, key: 'evenements' },
+  { to: '/evenements', label: 'Évènements', icon: Calendar, key: 'evenements' },
   { to: '/profil', label: 'Mon profil', icon: User, key: 'profil' },
-  { to: '/a-propos', label: 'Ã€ propos', icon: Info, key: 'apropos' },
-  { to: '/evaluation', label: 'Ã‰valuation', icon: Star, key: 'evaluation' },
+  { to: '/a-propos', label: 'À propos', icon: Info, key: 'apropos' },
+  { to: '/evaluation', label: 'Évaluation', icon: Star, key: 'evaluation' },
 ];
 
 const MainLayout: React.FC = () => {
@@ -142,7 +142,7 @@ const MainLayout: React.FC = () => {
   const [pwaInstalled, setPwaInstalled] = useState(isInstalled());
 
   const handleLogout = async () => {
-    if (confirm('Se dÃ©connecter ?')) await logout();
+    if (confirm('Se déconnecter ?')) await logout();
   };
 
   const SidebarContent = () => (
@@ -215,11 +215,11 @@ const MainLayout: React.FC = () => {
             ? <img src={currentUser.photoURL} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
             : <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8rem', fontWeight: 600 }}>{currentUser?.displayName?.charAt(0) || 'M'}</div>}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.displayName || 'MÃ©decin'}</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser?.displayName || 'Médecin'}</div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{userProfile?.city || ''}</div>
           </div>
         </div>
-        {/* Bouton installation PWA â€” toujours visible sauf si dÃ©jÃ  installÃ© */}
+        {/* Bouton installation PWA — toujours visible sauf si déjà installé */}
         {!pwaInstalled && (
           <button
             onClick={async () => {
@@ -247,14 +247,14 @@ const MainLayout: React.FC = () => {
         {pwaInstalled && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.75rem', marginBottom: '0.5rem', background: '#dcfce7', borderRadius: 8, fontSize: '0.75rem', color: '#15803d' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Application installÃ©e
+            Application installée
           </div>
         )}
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={toggleDark} className="btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '0.5rem', gap: 0 }} title="Mode sombre">
             {dark ? <Sun size={15} /> : <Moon size={15} />}
           </button>
-          <button onClick={handleLogout} className="btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '0.5rem', gap: 0, color: 'var(--danger)' }} title="DÃ©connexion">
+          <button onClick={handleLogout} className="btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '0.5rem', gap: 0, color: 'var(--danger)' }} title="Déconnexion">
             <LogOut size={15} />
           </button>
         </div>
@@ -325,9 +325,9 @@ const MainLayout: React.FC = () => {
         {[
           { to: '/', icon: Home, label: 'Accueil', exact: true, key: 'home' },
           { to: '/cats', icon: FileText, label: 'CAT', key: 'cats' },
-          { to: '/medicaments', icon: Pill, label: 'MÃ©dicaments', key: 'medicaments' },
+          { to: '/medicaments', icon: Pill, label: 'Médicaments', key: 'medicaments' },
           { to: '/cas-cliniques', icon: Share2, label: 'Cas', key: 'cas' },
-          { to: '/evenements', icon: Calendar, label: 'Ã‰vÃ¨n.', key: 'evenements' },
+          { to: '/evenements', icon: Calendar, label: 'Évèn.', key: 'evenements' },
         ].map(item => (
           <NavLink key={item.to} to={item.to} end={item.exact}
             onClick={() => markSeen(item.key)}
@@ -354,4 +354,3 @@ const MainLayout: React.FC = () => {
 };
 
 export default MainLayout;
-

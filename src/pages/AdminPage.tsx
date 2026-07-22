@@ -82,7 +82,7 @@ const addPDFFooter = (pdf: any): void => {
   pdf.setTextColor(0, 0, 0);
 };
 
-type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications' | 'stats' | 'revenues';
+type AdminTab = 'users' | 'events' | 'invitations' | 'labs' | 'ads' | 'medications' | 'stats' | 'revenues' | 'annuaire';
 
 const AdminPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -90,6 +90,7 @@ const AdminPage: React.FC = () => {
   const [tab, setTab] = useState<AdminTab>('users');
   const [catStats, setCatStats] = useState<{catId:string;title:string;visits:number}[]>([]);
   const [revenues, setRevenues] = useState<any[]>([]);
+  const [rhumatologues, setRhumatologues] = useState<any[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [events, setEvents] = useState<MedicalEvent[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -130,6 +131,9 @@ const AdminPage: React.FC = () => {
       } else if (tab === 'revenues') {
         const snap = await getDocs(query(collection(db, 'ads'), orderBy('createdAt', 'desc')));
         setRevenues(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } else if (tab === 'annuaire') {
+        const snap = await getDocs(query(collection(db, 'rhumatologues'), orderBy('nom', 'asc')));
+        setRhumatologues(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -174,6 +178,7 @@ const AdminPage: React.FC = () => {
     { key: 'medications', icon: <Pill size={16} />, label: 'Médicaments' },
     { key: 'stats', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, label: 'Stats CAT' },
     { key: 'revenues', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>, label: 'Revenus' },
+    { key: 'annuaire', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>, label: 'Annuaire' },
   ];
 
   const CITIES = ['Tous', 'Ouagadougou', 'Bobo Dioulasso', 'Koudougou', 'Kaya', 'Koupéla', 'Autre'];
@@ -406,6 +411,9 @@ const AdminPage: React.FC = () => {
           )}
           {tab === 'revenues' && (
             <RevenuesAdmin ads={revenues} onRefresh={loadData} />
+          )}
+          {tab === 'annuaire' && (
+            <AnnuaireAdmin rhumatologues={rhumatologues} onRefresh={loadData} />
           )}
         </>
       )}
@@ -1286,5 +1294,153 @@ const RevenuesAdmin: React.FC<{ ads: any[]; onRefresh: () => void }> = ({ ads })
     </div>
   );
 };
+
+// ─── Annuaire Admin ───────────────────────────────────────────────
+const TITRES = ['Dr', 'Pr', 'Dr Pr'];
+
+const AnnuaireAdmin: React.FC<{ rhumatologues: any[]; onRefresh: () => void }> = ({ rhumatologues, onRefresh }) => {
+  const emptyForm = { titre: 'Dr', nom: '', prenom: '', telephone: '', email: '', photo: '', centres: [] as any[] };
+  const emptyCentre = { nom: '', adresse: '', jours: '', heures: '', telephone: '' };
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ ...emptyForm });
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const addCentre = () => setForm(f => ({ ...f, centres: [...f.centres, { ...emptyCentre }] }));
+  const updateCentre = (i: number, field: string, val: string) =>
+    setForm(f => ({ ...f, centres: f.centres.map((c, idx) => idx === i ? { ...c, [field]: val } : c) }));
+  const removeCentre = (i: number) =>
+    setForm(f => ({ ...f, centres: f.centres.filter((_, idx) => idx !== i) }));
+
+  const handleSave = async () => {
+    if (!form.nom) return;
+    const data = { ...form, createdAt: new Date().toISOString() };
+    if (editId) {
+      await updateDoc(doc(db, 'rhumatologues', editId), data);
+    } else {
+      await addDoc(collection(db, 'rhumatologues'), data);
+    }
+    setForm({ ...emptyForm });
+    setShowForm(false);
+    setEditId(null);
+    onRefresh();
+  };
+
+  const handleEdit = (r: any) => {
+    setForm({ titre: r.titre || 'Dr', nom: r.nom || '', prenom: r.prenom || '', telephone: r.telephone || '', email: r.email || '', photo: r.photo || '', centres: r.centres || [] });
+    setEditId(r.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer ce rhumatologue ?')) return;
+    await deleteDoc(doc(db, 'rhumatologues', id));
+    onRefresh();
+  };
+
+  return (
+    <div className="animate-fade">
+      <button onClick={() => { setShowForm(!showForm); setEditId(null); setForm({ ...emptyForm }); }} className="btn-primary" style={{ marginBottom: '1rem' }}>
+        <Plus size={15} /> Ajouter un rhumatologue
+      </button>
+
+      {showForm && (
+        <div className="card" style={{ padding: '1.25rem', marginBottom: '1rem' }}>
+          <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, margin: '0 0 1rem', color: 'var(--text)' }}>
+            {editId ? 'Modifier' : 'Nouveau'} rhumatologue
+          </h3>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: '0.5rem' }}>
+              <select className="input" value={form.titre} onChange={e => setForm(f => ({ ...f, titre: e.target.value }))}>
+                {TITRES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <input className="input" placeholder="Prénom *" value={form.prenom} onChange={e => setForm(f => ({ ...f, prenom: e.target.value }))} />
+              <input className="input" placeholder="Nom *" value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <input className="input" placeholder="Téléphone direct" value={form.telephone} onChange={e => setForm(f => ({ ...f, telephone: e.target.value }))} />
+              <input className="input" placeholder="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <input className="input" placeholder="URL photo (optionnel)" value={form.photo} onChange={e => setForm(f => ({ ...f, photo: e.target.value }))} />
+
+            {/* Centres */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Centres de consultation
+                </div>
+                <button onClick={addCentre} className="btn-ghost" style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}>
+                  <Plus size={12} /> Ajouter un centre
+                </button>
+              </div>
+              {form.centres.length === 0 && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem 0' }}>
+                  Aucun centre. Cliquez sur "Ajouter un centre".
+                </div>
+              )}
+              {form.centres.map((centre, i) => (
+                <div key={i} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '0.75rem', marginBottom: '0.5rem', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--primary)' }}>Centre {i + 1}</div>
+                    <button onClick={() => removeCentre(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}><X size={14} /></button>
+                  </div>
+                  <div style={{ display: 'grid', gap: '0.5rem' }}>
+                    <input className="input" placeholder="Nom du centre *" value={centre.nom} onChange={e => updateCentre(i, 'nom', e.target.value)} />
+                    <input className="input" placeholder="Adresse / Quartier" value={centre.adresse} onChange={e => updateCentre(i, 'adresse', e.target.value)} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <input className="input" placeholder="Jours (ex: Lun-Ven, Mer-Sam)" value={centre.jours} onChange={e => updateCentre(i, 'jours', e.target.value)} />
+                      <input className="input" placeholder="Heures (ex: 8h-13h)" value={centre.heures} onChange={e => updateCentre(i, 'heures', e.target.value)} />
+                    </div>
+                    <input className="input" placeholder="Téléphone du centre" value={centre.telephone} onChange={e => updateCentre(i, 'telephone', e.target.value)} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={handleSave} disabled={!form.nom} className="btn-primary"><Check size={14} /> Enregistrer</button>
+              <button onClick={() => { setShowForm(false); setEditId(null); }} className="btn-ghost"><X size={14} /> Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Liste */}
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        {rhumatologues.map(r => (
+          <div key={r.id} className="card" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)', fontFamily: 'Sora, sans-serif' }}>
+                {r.titre} {r.prenom} {r.nom}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                {(r.centres || []).length} centre{(r.centres || []).length > 1 ? 's' : ''}
+                {r.telephone && ` · ${r.telephone}`}
+              </div>
+              {(r.centres || []).map((c: any, i: number) => (
+                <div key={i} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                  <strong>{c.nom}</strong>{c.jours ? ` · ${c.jours}` : ''}{c.heures ? ` · ${c.heures}` : ''}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button onClick={() => handleEdit(r)} className="btn-ghost" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}>
+                Modifier
+              </button>
+              <button onClick={() => handleDelete(r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                <Trash2 size={15} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {rhumatologues.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+            Aucun rhumatologue dans l'annuaire
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 export default AdminPage;

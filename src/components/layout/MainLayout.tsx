@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
-  Home, FileText, Pill, Share2, Calendar, User,
+  Home, FileText, Pill, Calendar, User, BookOpen,
   Shield, Menu, X, Sun, Moon, LogOut, Info, Star,
 } from 'lucide-react';
 import { db } from '../../services/firebase';
@@ -28,11 +28,6 @@ const useNotifications = (userId?: string) => {
         setLastSeen(seen);
 
         const newBadges: Record<string, number> = {};
-
-        // Cas cliniques
-        const casSnap = await getDocs(query(collection(db, 'cases'), orderBy('createdAt', 'desc'), limit(30)));
-        const lastCas = seen['cas'] || '';
-        newBadges['cas'] = casSnap.docs.filter(d => (d.data().createdAt || '') > lastCas && d.data().status === 'approved').length;
 
         // Évènements
         const evSnap = await getDocs(query(collection(db, 'events'), orderBy('createdAt', 'desc'), limit(20)));
@@ -126,8 +121,8 @@ const navItems = [
   { to: '/', label: 'Accueil', icon: Home, exact: true, key: 'home' },
   { to: '/cats', label: 'CAT Rhumato', icon: FileText, key: 'cats' },
   { to: '/medicaments', label: 'Médicaments', icon: Pill, key: 'medicaments' },
-  { to: '/cas-cliniques', label: 'Cas cliniques', icon: Share2, key: 'cas' },
   { to: '/evenements', label: 'Évènements', icon: Calendar, key: 'evenements' },
+  { to: '/annuaire', label: 'Annuaire', icon: BookOpen, key: 'annuaire' },
   { to: '/profil', label: 'Mon profil', icon: User, key: 'profil' },
   { to: '/a-propos', label: 'À propos', icon: Info, key: 'apropos' },
   { to: '/evaluation', label: 'Évaluation', icon: Star, key: 'evaluation' },
@@ -225,8 +220,17 @@ const MainLayout: React.FC = () => {
             onClick={async () => {
               if (deferredPrompt) {
                 const ok = await triggerInstall();
-                if (ok) setPwaInstalled(true);
+                if (ok) { setPwaInstalled(true); return; }
               }
+              // Fallback: ouvrir instructions
+              const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+              const isAndroid = /android/i.test(navigator.userAgent);
+              const msg = isIos
+                ? "Sur Safari iPhone :\n1. Bouton Partager (icone en bas)\n2. Sur l'ecran d'accueil\n3. Ajouter"
+                : isAndroid
+                  ? "Sur Chrome Android :\n1. Menu 3 points (en haut a droite)\n2. Ajouter a l'ecran d'accueil"
+                  : "Sur Chrome PC :\n1. Icone installer dans la barre d'adresse (a droite)\n   OU\n2. Menu > Installer Assistant Rhumato";
+              window.alert(msg);
             }}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, width: '100%',
@@ -326,7 +330,6 @@ const MainLayout: React.FC = () => {
           { to: '/', icon: Home, label: 'Accueil', exact: true, key: 'home' },
           { to: '/cats', icon: FileText, label: 'CAT', key: 'cats' },
           { to: '/medicaments', icon: Pill, label: 'Médicaments', key: 'medicaments' },
-          { to: '/cas-cliniques', icon: Share2, label: 'Cas', key: 'cas' },
           { to: '/evenements', icon: Calendar, label: 'Évèn.', key: 'evenements' },
         ].map(item => (
           <NavLink key={item.to} to={item.to} end={item.exact}

@@ -12,7 +12,7 @@ import HomePage from './pages/HomePage';
 import CATListPage from './pages/CATListPage';
 import CATDetailPage from './pages/CATDetailPage';
 import MedicationsPage from './pages/MedicationsPage';
-import CasesPage from './pages/CasesPage';
+import AnnuairePage from './pages/AnnuairePage';
 import EventsPage from './pages/EventsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
@@ -79,7 +79,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/cats" element={<PrivateRoute><CATListPage /></PrivateRoute>} />
         <Route path="/cats/:id" element={<PrivateRoute><CATDetailPage /></PrivateRoute>} />
         <Route path="/medicaments" element={<PrivateRoute><MedicationsPage /></PrivateRoute>} />
-        <Route path="/cas-cliniques" element={<PrivateRoute><CasesPage /></PrivateRoute>} />
+        <Route path="/annuaire" element={<PrivateRoute><AnnuairePage /></PrivateRoute>} />
         <Route path="/evenements" element={<PrivateRoute><EventsPage /></PrivateRoute>} />
         <Route path="/profil" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />

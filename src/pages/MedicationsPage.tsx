@@ -145,7 +145,7 @@ const MedModal: React.FC<{ med: Medication; onClose: () => void; isAdmin: boolea
                   }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '0.875rem', fontWeight: 500, color: expired ? '#b91c1c' : '#1d4ed8' }}>{n.nom}</div>
-                      {(n.dateDebut || n.dateFin) && (
+                      {isAdmin && (n.dateDebut || n.dateFin) && (
                         <div style={{ display: 'flex', gap: 8, marginTop: 2, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                           {n.dateDebut && <span><Calendar size={10} style={{ display: 'inline', marginRight: 2 }} />Depuis {formatDate(n.dateDebut)}</span>}
                           {n.dateFin && <span style={{ color: expired ? '#b91c1c' : '#15803d' }}>

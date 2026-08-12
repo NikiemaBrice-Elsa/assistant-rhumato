@@ -1,20 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FileText, Pill, Share2, Calendar, ArrowRight, X, ExternalLink, RefreshCw } from 'lucide-react';
-import { MedIcon, CAT_ICON_MAP } from '../components/ui/MedIcons';
+import { FileText, Pill, Share2, Calendar, X, ExternalLink, RefreshCw } from 'lucide-react';
+
 import { db } from '../services/firebase';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { Ad } from '../types';
-
-const CATS_QUICK = [
-  { id: 'lombalgie', label: 'Lombalgie', icon: 'bone' },
-  { id: 'goutte', label: 'Goutte', icon: 'crystal' },
-  { id: 'sciatique', label: 'Sciatique', icon: 'nerve' },
-  { id: 'arthrite-aigue', label: 'Arthrite aiguë', icon: 'joint' },
-  { id: 'osteoporose', label: 'Ostéoporose', icon: 'bone' },
-  { id: 'gonalgie', label: 'Gonalgie', icon: 'knee' },
-];
 
 // ─── Bannière pub ─────────────────────────────────────────────────
 const AdBanner: React.FC<{ ad: Ad; onClose: () => void }> = ({ ad, onClose }) => {
@@ -242,45 +233,6 @@ const HomePage: React.FC = () => {
         ))}
       </div>
 
-      {/* Quick CAT access */}
-      <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <div>
-            <h3 style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', margin: 0, color: 'var(--text)' }}>
-              Accès rapide — CAT
-            </h3>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>Conduites à tenir fréquentes</p>
-          </div>
-          <Link to="/cats" style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none' }}>
-            Voir tout <ArrowRight size={14} />
-          </Link>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-          {CATS_QUICK.map(cat => (
-            <Link
-              key={cat.id}
-              to={`/cats/${cat.id}`}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: '0.75rem 0.5rem',
-                background: CAT_ICON_MAP[cat.icon]?.bg || '#e8f2fb',
-                borderRadius: 8,
-                textDecoration: 'none',
-                gap: 6,
-                transition: 'all 0.15s',
-                border: '1px solid transparent',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
-            >
-              <MedIcon name={cat.icon} size={22} color={CAT_ICON_MAP[cat.icon]?.color || '#1a6bb5'} />
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text)', textAlign: 'center', lineHeight: 1.2 }}>
-                {cat.label}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </div>
 
       {/* Info banner */}
       <div style={{

@@ -7,7 +7,7 @@ import {
   Shield, Menu, X, Sun, Moon, LogOut, Info, Star,
 } from 'lucide-react';
 import { db } from '../../services/firebase';
-import PWABanner, { usePWAInstall, isInstalled } from '../ui/PWABanner';
+import PWABanner from '../ui/PWABanner';
 import { collection, query, orderBy, limit, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 
 // ─── Hook notifications ───────────────────────────────────────────
@@ -128,13 +128,57 @@ const navItems = [
   { to: '/evaluation', label: 'Évaluation', icon: Star, key: 'evaluation' },
 ];
 
+
+// ─── Composant bouton installation PWA ───────────────────────────
+const InstallButton: React.FC = () => {
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [installed, setInstalled] = React.useState(
+    window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true
+  );
+
+  React.useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  if (installed) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.75rem', marginBottom: '0.5rem', background: '#dcfce7', borderRadius: 8, fontSize: '0.75rem', color: '#15803d' }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      Application installée
+    </div>
+  );
+
+  const handleClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setInstalled(true);
+      setDeferredPrompt(null);
+    } else {
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const android = /android/i.test(navigator.userAgent);
+      alert(ios
+        ? "Safari → bouton Partager → Sur l'écran d'accueil"
+        : android
+          ? "Chrome → menu ⋮ → Ajouter à l'écran d'accueil"
+          : "Chrome → icône installer (▣) dans la barre d'adresse");
+    }
+  };
+
+  return (
+    <button onClick={handleClick} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '0.5rem 0.75rem', marginBottom: '0.5rem', background: 'linear-gradient(135deg, #1a6bb5, #0d5299)', border: 'none', borderRadius: 8, cursor: 'pointer', color: 'white', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Installer l'application
+    </button>
+  );
+};
+
 const MainLayout: React.FC = () => {
   const { currentUser, userProfile, isAdmin, logout } = useAuth();
   const { dark, toggleDark } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { badges, markSeen } = useNotifications(currentUser?.uid);
-  const { triggerInstall, deferredPrompt } = usePWAInstall();
-  const [pwaInstalled, setPwaInstalled] = useState(isInstalled());
 
   const handleLogout = async () => {
     if (confirm('Se déconnecter ?')) await logout();
@@ -214,46 +258,8 @@ const MainLayout: React.FC = () => {
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{userProfile?.city || ''}</div>
           </div>
         </div>
-        {/* Bouton installation PWA — toujours visible sauf si déjà installé */}
-        {!pwaInstalled && (
-          <button
-            onClick={async () => {
-              if (deferredPrompt) {
-                const ok = await triggerInstall();
-                if (ok) { setPwaInstalled(true); return; }
-              }
-              // Fallback: ouvrir instructions
-              const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-              const isAndroid = /android/i.test(navigator.userAgent);
-              const msg = isIos
-                ? "Sur Safari iPhone :\n1. Bouton Partager (icone en bas)\n2. Sur l'ecran d'accueil\n3. Ajouter"
-                : isAndroid
-                  ? "Sur Chrome Android :\n1. Menu 3 points (en haut a droite)\n2. Ajouter a l'ecran d'accueil"
-                  : "Sur Chrome PC :\n1. Icone installer dans la barre d'adresse (a droite)\n   OU\n2. Menu > Installer Assistant Rhumato";
-              window.alert(msg);
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-              padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
-              background: 'linear-gradient(135deg, #1a6bb5, #0d5299)',
-              border: 'none', borderRadius: 8, cursor: 'pointer',
-              color: 'white', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Installer l'application
-          </button>
-        )}
-        {pwaInstalled && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0.4rem 0.75rem', marginBottom: '0.5rem', background: '#dcfce7', borderRadius: 8, fontSize: '0.75rem', color: '#15803d' }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Application installée
-          </div>
-        )}
+        {/* Bouton installation PWA */}
+        <InstallButton />
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={toggleDark} className="btn-ghost" style={{ flex: 1, justifyContent: 'center', padding: '0.5rem', gap: 0 }} title="Mode sombre">
             {dark ? <Sun size={15} /> : <Moon size={15} />}
